@@ -5,6 +5,10 @@ using UnityEngine.UI;
 
 public class ConsoleController : MonoBehaviour
 {
+
+    //todo handle the case where you type a character 
+    //and and the blinking cursor needs to move
+
     public GameObject consoleCharPrefab;
 
     public int terminalWidth = 80;
@@ -13,8 +17,48 @@ public class ConsoleController : MonoBehaviour
 
     GameObject[,] chars;
 
+    List<string> lines = new List<string>();
+
     int cursorRow = 0;
     int cursorCol = 0;
+
+    float cursorBlinkSeconds = 1;
+    float lastCursorBlink;
+    bool cursorBlinkOn = true;
+
+    // Start is called before the first frame update
+    void Start()
+    {
+        lastCursorBlink = Time.time;
+        lines.Add("");
+        Generate();
+        UpdateConsole();
+    }
+
+    //first, we will simply make it as many lines as we can hold. Scrolling to be added later
+    void UpdateConsole()
+    {
+        UpdateLineNumbers();
+        UpdateLines();
+    }
+
+    void HandleCursorBlink(){
+        int maxLineNumberLength = (""+(lines.Count)).Length;
+        int totalLineNumberLength = maxLineNumberLength + 2;
+        if(Time.time - lastCursorBlink >= cursorBlinkSeconds)
+        {
+            lastCursorBlink = Time.time;
+            cursorBlinkOn = !cursorBlinkOn;
+        }
+        GameObject cell = chars[cursorRow, cursorCol + totalLineNumberLength];
+
+        Color textColor = cursorBlinkOn ? Color.black : Color.white;
+        Color cellColor = cursorBlinkOn ? Color.white : Color.black;
+
+        ConsoleCharController controller = cell.GetComponent<ConsoleCharController>();
+        controller.UpdateColor(cellColor);
+        controller.UpdateTextColor(textColor);
+    }
 
     public GameObject SpawnConsoleChar()
     {
@@ -144,15 +188,91 @@ public class ConsoleController : MonoBehaviour
         camera.aspect = aspectRatio;
     }
 
-    // Start is called before the first frame update
-    void Start()
+    void OnReturnPressed()
     {
-        Generate();
+        string beginningOfLine = lines[cursorRow].Substring(0,cursorCol);  
+        string restOfLine = lines[cursorRow].Substring(cursorCol); 
+
+        lines[cursorRow] = beginningOfLine;
+        lines.Insert(cursorRow + 1, restOfLine);
+        cursorRow++;
+        cursorCol = 0;
+        UpdateConsole();
+    }
+
+    void UpdateLines(){
+        int maxLineNumberLength = (""+(lines.Count)).Length;
+        int totalLineNumberLength = maxLineNumberLength + 2;
+        for(int i = 0;i<lines.Count;i++)
+        {
+            string line = lines[i];
+            for(int j = 0;j<line.Length;j++)
+            {
+                SetChar(i,j + totalLineNumberLength, line[j]);
+            }
+        }
+    }
+
+    void UpdateLineNumbers()
+    {
+        int maxLineNumberLength = (""+(lines.Count)).Length;
+        int totalLineNumberLength = maxLineNumberLength + 2;
+
+        for(int i = 0;i<lines.Count;i++)
+        {
+            string lineNumber = (i + 1 + "");
+            for(int j = 0;j<totalLineNumberLength;j++)
+            {
+                SetCellColor(i,j,new Color(.15f,.15f,.15f));
+                SetChar(i,j,' ');
+            }
+            for(int j = 0;j<lineNumber.Length;j++)
+            {
+                int currentCol = totalLineNumberLength - 2 - j;
+                char currentChar = lineNumber[lineNumber.Length - 1 - j];
+                SetChar(i,currentCol, currentChar);
+            }
+        }
+    }
+
+    void OnBackspacePressed()
+    {
+        //TODO cut out one char, if line is empty cut out the line instead
+    }
+
+    void SetBlinkingCursorBackToBlackJustInCase(){
+        int maxLineNumberLength = (""+(lines.Count)).Length;
+        int totalLineNumberLength = maxLineNumberLength + 2;
+        GameObject cell = chars[cursorRow,cursorCol + totalLineNumberLength];
+        //don't want to blink white and then move the cursor and have it get stuck
+        cell.GetComponent<ConsoleCharController>().UpdateColor(Color.black);
+        cell.GetComponent<ConsoleCharController>().UpdateTextColor(Color.white);
+    }
+
+    void OnKeyPressed(char ch)
+    {
+        SetBlinkingCursorBackToBlackJustInCase();
+        lines[cursorRow] = lines[cursorRow].Insert(cursorCol,ch+"");
+        UpdateLines();
+        cursorCol++;
+    }
+
+    void SetChar(int r, int c, char ch)
+    {
+        GameObject cell = chars[r,c];
+        cell.GetComponent<ConsoleCharController>().UpdateText(ch+"");
+    }
+
+    void SetCellColor(int r, int c, Color color)
+    {
+        GameObject cell = chars[r,c];
+        cell.GetComponent<ConsoleCharController>().UpdateColor(color);
     }
 
     // Update is called once per frame
     void Update()
     {
+        HandleCursorBlink();
         // Check for any input from the user
         if (Input.anyKeyDown)
         {
@@ -160,35 +280,16 @@ public class ConsoleController : MonoBehaviour
             if (Input.inputString.Length > 0 && !Input.GetKey(KeyCode.Return) && !Input.GetKey(KeyCode.Backspace))
             {
                 foreach(char ch in Input.inputString){
-                    GameObject cell = chars[cursorRow,cursorCol];
-                    cell.GetComponent<ConsoleCharController>().UpdateText(ch+"");
-                    cursorCol++;
-                    if(cursorCol == 80){
-                        cursorCol = 0;
-                        cursorRow++;
-                    }
+                    OnKeyPressed(ch);
                 }
             }
             else if (Input.GetKeyDown(KeyCode.Return))
             {
-                // Handle Enter/Return key
-                cursorRow++;
-                cursorCol = 0;
+                OnReturnPressed();
             }
             if (Input.GetKeyDown(KeyCode.Backspace))
             {
-                if(cursorCol == 0)
-                {
-                    if(cursorRow != 0)
-                    {
-                        cursorRow--;
-                        cursorCol = 79;
-                    }
-                }else{
-                    cursorCol--;
-                }
-                GameObject cell = chars[cursorRow,cursorCol];
-                cell.GetComponent<ConsoleCharController>().UpdateText("");
+                OnBackspacePressed();
             }
         }
     }
