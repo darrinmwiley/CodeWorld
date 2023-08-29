@@ -2,34 +2,35 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
+using System;
 
 public class ConsoleController : MonoBehaviour
 {
 
-    //todo handle the case where you type a character 
-    //and and the blinking cursor needs to move
+    //todo key holding down
+    //todo fake and true cursor position
+    //todo light up cursor when moving
 
     public GameObject consoleCharPrefab;
+    public GameObject cursorPrefab;
 
     public int terminalWidth = 80;
     public int terminalHeight = 24;
     RenderTexture renderTexture;
 
     GameObject[,] chars;
+    GameObject cursor;
 
     List<string> lines = new List<string>();
 
     int cursorRow = 0;
     int cursorCol = 0;
-
-    float cursorBlinkSeconds = 1;
-    float lastCursorBlink;
-    bool cursorBlinkOn = true;
+    int visibleCursorCol = 0;
 
     // Start is called before the first frame update
     void Start()
     {
-        lastCursorBlink = Time.time;
+        InitKeyHandlers();
         lines.Add("");
         Generate();
         UpdateConsole();
@@ -42,22 +43,14 @@ public class ConsoleController : MonoBehaviour
         UpdateLines();
     }
 
-    void HandleCursorBlink(){
-        int maxLineNumberLength = (""+(lines.Count)).Length;
-        int totalLineNumberLength = maxLineNumberLength + 2;
-        if(Time.time - lastCursorBlink >= cursorBlinkSeconds)
-        {
-            lastCursorBlink = Time.time;
-            cursorBlinkOn = !cursorBlinkOn;
-        }
-        GameObject cell = chars[cursorRow, cursorCol + totalLineNumberLength];
+    void UpdateCursor()
+    {
+        int trueCursorCol = visibleCursorCol + GetLineCountPadding();
+        cursor.transform.position = new Vector3((trueCursorCol * 3f / 5f) + .05f, terminalHeight - 1 - cursorRow + .5f, -.1f);
+    }
 
-        Color textColor = cursorBlinkOn ? Color.black : Color.white;
-        Color cellColor = cursorBlinkOn ? Color.white : Color.black;
-
-        ConsoleCharController controller = cell.GetComponent<ConsoleCharController>();
-        controller.UpdateColor(cellColor);
-        controller.UpdateTextColor(textColor);
+    int GetLineCountPadding(){
+        return (lines.Count+"").Length + 2;
     }
 
     public GameObject SpawnConsoleChar()
@@ -125,6 +118,9 @@ public class ConsoleController : MonoBehaviour
             }
         }
 
+        cursor = Instantiate(cursorPrefab, new Vector3Int(0,0,0), Quaternion.identity);
+        cursor.transform.position = new Vector3((3 * 3f / 5f) + .05f, terminalHeight - 1 + .5f, -.1f);
+
         Bounds bounds = GetBounds();
         Camera camera = cameraGO.GetComponent<Camera>();
         if(camera == null)
@@ -188,7 +184,7 @@ public class ConsoleController : MonoBehaviour
         camera.aspect = aspectRatio;
     }
 
-    void OnReturnPressed()
+    public void OnReturnPressed()
     {
         string beginningOfLine = lines[cursorRow].Substring(0,cursorCol);  
         string restOfLine = lines[cursorRow].Substring(cursorCol); 
@@ -196,19 +192,25 @@ public class ConsoleController : MonoBehaviour
         lines[cursorRow] = beginningOfLine;
         lines.Insert(cursorRow + 1, restOfLine);
         cursorRow++;
-        cursorCol = 0;
+        visibleCursorCol = cursorCol = 0;
         UpdateConsole();
     }
 
     void UpdateLines(){
-        int maxLineNumberLength = (""+(lines.Count)).Length;
-        int totalLineNumberLength = maxLineNumberLength + 2;
-        for(int i = 0;i<lines.Count;i++)
+        //TODO make padding a var instead of a method
+        int padding = GetLineCountPadding();
+        for(int i = 0;i<terminalHeight;i++)
         {
-            string line = lines[i];
-            for(int j = 0;j<line.Length;j++)
+            for(int j = padding;j<terminalWidth;j++)
             {
-                SetChar(i,j + totalLineNumberLength, line[j]);
+                if(lines.Count > i && lines[i].Length > j - padding)
+                {
+                    SetCellColor(i,j,Color.black);
+                    SetChar(i,j,lines[i][j - padding]);
+                }else{
+                    SetCellColor(i,j,Color.black);
+                    SetChar(i,j,' ');
+                }
             }
         }
     }
@@ -218,43 +220,92 @@ public class ConsoleController : MonoBehaviour
         int maxLineNumberLength = (""+(lines.Count)).Length;
         int totalLineNumberLength = maxLineNumberLength + 2;
 
-        for(int i = 0;i<lines.Count;i++)
+        for(int i = 0;i<terminalHeight;i++)
         {
-            string lineNumber = (i + 1 + "");
-            for(int j = 0;j<totalLineNumberLength;j++)
+            if(i < lines.Count)
             {
-                SetCellColor(i,j,new Color(.15f,.15f,.15f));
-                SetChar(i,j,' ');
-            }
-            for(int j = 0;j<lineNumber.Length;j++)
-            {
-                int currentCol = totalLineNumberLength - 2 - j;
-                char currentChar = lineNumber[lineNumber.Length - 1 - j];
-                SetChar(i,currentCol, currentChar);
+                string lineNumber = (i + 1 + "");
+                for(int j = 0;j<totalLineNumberLength;j++)
+                {
+                    SetCellColor(i,j,new Color(.15f,.15f,.15f));
+                    SetChar(i,j,' ');
+                }
+                for(int j = 0;j<lineNumber.Length;j++)
+                {
+                    int currentCol = totalLineNumberLength - 2 - j;
+                    char currentChar = lineNumber[lineNumber.Length - 1 - j];
+                    SetChar(i,currentCol, currentChar);
+                }
+            }else{
+                for(int j = 0;j<totalLineNumberLength;j++)
+                {
+                    SetCellColor(i,j,Color.black);
+                    SetChar(i,j,' ');
+                }
             }
         }
     }
 
-    void OnBackspacePressed()
+    public void OnBackspacePressed()
     {
+        if(cursorCol != 0)
+        {
+            SetChar(cursorRow, cursorCol + GetLineCountPadding() - 1, ' ');
+            String line = lines[cursorRow];
+            lines[cursorRow] = line.Substring(0,cursorCol - 1) + line.Substring(cursorCol);
+            visibleCursorCol = --cursorCol;
+        }else if(cursorRow != 0){
+            int newCursorCol = lines[cursorRow - 1].Length;
+            lines[cursorRow - 1] += lines[cursorRow];
+            lines.RemoveAt(cursorRow);
+            cursorRow--;
+            visibleCursorCol = cursorCol = newCursorCol;
+        }
+        UpdateConsole();
         //TODO cut out one char, if line is empty cut out the line instead
     }
 
-    void SetBlinkingCursorBackToBlackJustInCase(){
-        int maxLineNumberLength = (""+(lines.Count)).Length;
-        int totalLineNumberLength = maxLineNumberLength + 2;
-        GameObject cell = chars[cursorRow,cursorCol + totalLineNumberLength];
-        //don't want to blink white and then move the cursor and have it get stuck
-        cell.GetComponent<ConsoleCharController>().UpdateColor(Color.black);
-        cell.GetComponent<ConsoleCharController>().UpdateTextColor(Color.white);
+    public void OnUpArrowPressed()
+    {
+        cursorRow = Mathf.Max(0,cursorRow - 1);
+        visibleCursorCol = Mathf.Min(cursorCol, lines[cursorRow].Length);
+    }
+
+    public void OnDownArrowPressed()
+    {
+        cursorRow = Mathf.Min(lines.Count, cursorRow + 1);
+        visibleCursorCol = Mathf.Min(cursorCol, lines[cursorRow].Length);
+    }
+
+    public void OnLeftArrowPressed()
+    {
+        if(visibleCursorCol != 0)
+            visibleCursorCol--;
+        else if(cursorRow != 0)
+        {
+            cursorRow--;
+            visibleCursorCol = lines[cursorRow].Length;
+        }
+        cursorCol = visibleCursorCol;
+    }
+
+    public void OnRightArrowPressed()
+    {
+        if(visibleCursorCol != lines[cursorRow].Length)
+            visibleCursorCol++;
+        else if(cursorRow != lines.Count)
+        {
+            cursorRow++;
+            visibleCursorCol = 0;
+        }
+        cursorCol = visibleCursorCol;
     }
 
     void OnKeyPressed(char ch)
     {
-        SetBlinkingCursorBackToBlackJustInCase();
-        lines[cursorRow] = lines[cursorRow].Insert(cursorCol,ch+"");
+        lines[cursorRow] = lines[cursorRow].Insert(visibleCursorCol,ch+"");
         UpdateLines();
-        cursorCol++;
+        cursorCol = ++visibleCursorCol;
     }
 
     void SetChar(int r, int c, char ch)
@@ -269,27 +320,42 @@ public class ConsoleController : MonoBehaviour
         cell.GetComponent<ConsoleCharController>().UpdateColor(color);
     }
 
+    Dictionary<KeyCode, Action> specialKeyPressHandlers;
+    
+    void InitKeyHandlers(){
+        specialKeyPressHandlers = new Dictionary<KeyCode, Action>();
+        specialKeyPressHandlers[KeyCode.Return] = OnReturnPressed;
+        specialKeyPressHandlers[KeyCode.Backspace] = OnBackspacePressed;
+        specialKeyPressHandlers[KeyCode.LeftArrow] = OnLeftArrowPressed;
+        specialKeyPressHandlers[KeyCode.RightArrow] = OnRightArrowPressed;
+        specialKeyPressHandlers[KeyCode.UpArrow] = OnUpArrowPressed;
+        specialKeyPressHandlers[KeyCode.DownArrow] = OnDownArrowPressed;
+    }
+
+    KeyCode? GetSpecialKeyPressed()
+    {
+        foreach(KeyCode keycode in specialKeyPressHandlers.Keys)
+        {
+            if(Input.GetKey(keycode))
+                return keycode;
+        }
+        return null;
+    }
+
     // Update is called once per frame
     void Update()
     {
-        HandleCursorBlink();
+        UpdateCursor();
         // Check for any input from the user
         if (Input.anyKeyDown)
         {
-            // Check if the input is a character (letter or digit)
-            if (Input.inputString.Length > 0 && !Input.GetKey(KeyCode.Return) && !Input.GetKey(KeyCode.Backspace))
-            {
+            KeyCode? specialKeyPressed = GetSpecialKeyPressed();
+            if(specialKeyPressed.HasValue){
+                specialKeyPressHandlers[specialKeyPressed.Value].Invoke();
+            }else{
                 foreach(char ch in Input.inputString){
                     OnKeyPressed(ch);
                 }
-            }
-            else if (Input.GetKeyDown(KeyCode.Return))
-            {
-                OnReturnPressed();
-            }
-            if (Input.GetKeyDown(KeyCode.Backspace))
-            {
-                OnBackspacePressed();
             }
         }
     }
