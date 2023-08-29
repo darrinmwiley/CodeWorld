@@ -7,7 +7,7 @@ using System;
 public class ConsoleController : MonoBehaviour
 {
 
-    //todo key holding down
+    //todo key holding down - rule should be that pressing any key other than the held key cancels the hold
     //todo fake and true cursor position
     //todo light up cursor when moving
 
@@ -22,6 +22,8 @@ public class ConsoleController : MonoBehaviour
     GameObject cursor;
 
     List<string> lines = new List<string>();
+    Dictionary<KeyCode, float> keyDownTime = new Dictionary<KeyCode, float>();
+    KeyCode lastKeyPressed; 
 
     int cursorRow = 0;
     int cursorCol = 0;
@@ -186,8 +188,8 @@ public class ConsoleController : MonoBehaviour
 
     public void OnReturnPressed()
     {
-        string beginningOfLine = lines[cursorRow].Substring(0,cursorCol);  
-        string restOfLine = lines[cursorRow].Substring(cursorCol); 
+        string beginningOfLine = lines[cursorRow].Substring(0,visibleCursorCol);  
+        string restOfLine = lines[cursorRow].Substring(visibleCursorCol); 
 
         lines[cursorRow] = beginningOfLine;
         lines.Insert(cursorRow + 1, restOfLine);
