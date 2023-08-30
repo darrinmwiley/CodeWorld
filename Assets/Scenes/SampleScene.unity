@@ -553,7 +553,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!4 &536977642
 Transform:
   m_ObjectHideFlags: 0
@@ -621,6 +621,7 @@ GameObject:
   m_Component:
   - component: {fileID: 665749551}
   - component: {fileID: 665749552}
+  - component: {fileID: 665749553}
   m_Layer: 0
   m_Name: Console
   m_TagString: Untagged
@@ -655,10 +656,27 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 716b5d1a486bab94badbbc5010fcbe34, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  consoleCharPrefab: {fileID: 2760438915476414336, guid: 9b373fd227d071a4fb028941166cc20d,
+  consoleCharPrefab: {fileID: 2760438915476414336, guid: 08ab85a7e1f28bd4faca037acdd2a831,
+    type: 3}
+  cursorPrefab: {fileID: 2760438915476414336, guid: 9b373fd227d071a4fb028941166cc20d,
     type: 3}
   terminalWidth: 80
   terminalHeight: 24
+  heldKeyDelay: 0.1
+  heldKeyTriggerTime: 0.5
+  isKeyHeld: 0
+--- !u!114 &665749553
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 665749550}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 4ce47b530373b164aae7bced41489863, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
 --- !u!1 &792747356
 GameObject:
   m_ObjectHideFlags: 0
@@ -913,7 +931,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 0
+  m_IsActive: 1
 --- !u!4 &1093282867
 Transform:
   m_ObjectHideFlags: 0
