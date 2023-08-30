@@ -6,11 +6,13 @@ using System;
 
 public class ConsoleController : MonoBehaviour
 {
-
-    //todo key holding down - rule should be that pressing any key other than the held key cancels the hold
-    //todo fake and true cursor position
-    //todo light up cursor when moving
-    //write in spaces, delete in tabs (when applicable)
+    //TODO any character that isn't in in KeyCodes should be tracked for hold too
+    //TODO tabs
+        //write in spaces, delete in tabs (when applicable)
+    //TODO Mouse input
+        //highlighting
+    //TODO CRTLY + CTRLZ
+    //TODO CTRLX + CTRLC + CTRLV
 
     public GameObject consoleCharPrefab;
     public GameObject cursorPrefab;
@@ -29,10 +31,12 @@ public class ConsoleController : MonoBehaviour
     int cursorCol = 0;
     int visibleCursorCol = 0;
 
-    public float heldKeyDelay = .07f;
+    public float heldKeyDelay = .01f;
     public float heldKeyTriggerTime = .5f;
     public bool isKeyHeld = false;
     float lastHeldKeyTriggerTime;
+
+    KeyInfo previousHeldKey = null;
 
     // Start is called before the first frame update
     void Start()
@@ -309,19 +313,25 @@ public class ConsoleController : MonoBehaviour
         cursorCol = visibleCursorCol;
     }
 
-    public void OnKeyPressed(KeyInfo keyInfo)
+    void OnKeyPressed(KeyInfo keyInfo)
     {
-        if(keyInfo.Character.HasValue)
-        {
-            OnKeyPressed(keyInfo.Character.Value);
-        }else if(keyInfo.KeyCode.HasValue)
-        {
-            specialKeyPressHandlers[keyInfo.KeyCode.Value].Invoke();
+        if(keyInfo.Code.HasValue){
+            if(specialKeyPressHandlers.ContainsKey(keyInfo.Code.Value))
+            {
+                specialKeyPressHandlers[keyInfo.Code.Value].Invoke();
+            }else if (KeyListener.KeyCodeToChar(keyInfo.Code.Value) != 0)
+            {
+                OnKeyPressed(keyInfo.ToChar());
+            }
+        }else{
+
         }
+        
     }
 
     void OnKeyPressed(char ch)
     {
+        //todo handle TAB press
         lines[cursorRow] = lines[cursorRow].Insert(visibleCursorCol,ch+"");
         UpdateLines();
         cursorCol = ++visibleCursorCol;
@@ -364,7 +374,6 @@ public class ConsoleController : MonoBehaviour
     public void HandleHeldKey()
     {
         KeyInfo latest = keyListener.GetLatestKeyPress();
-        //Debug.Log(latest);
         if(latest != null)
         {
             if(!isKeyHeld && latest.IsKeyDown && Time.time - latest.LastDownTime > heldKeyTriggerTime)
@@ -372,6 +381,10 @@ public class ConsoleController : MonoBehaviour
                 isKeyHeld = true;
             }
             if(!latest.IsKeyDown)
+            {
+                isKeyHeld = false;
+            }
+            if(latest != previousHeldKey)
             {
                 isKeyHeld = false;
             }
@@ -384,24 +397,22 @@ public class ConsoleController : MonoBehaviour
                 }
             }
         }
+        previousHeldKey = latest;
     }
 
+    //TODO package KeyListener into GameSkeleton
     // Update is called once per frame
     void Update()
     {
         HandleHeldKey();
         UpdateCursor();
         // Check for any input from the user
-    
-        if (!isKeyHeld && Input.anyKeyDown)
+
+        if (!isKeyHeld)
         {
-            KeyCode? specialKeyPressed = GetSpecialKeyPressed();
-            if(specialKeyPressed.HasValue){
-                specialKeyPressHandlers[specialKeyPressed.Value].Invoke();
-            }else{
-                foreach(char ch in Input.inputString){
-                    OnKeyPressed(ch);
-                }
+            foreach(KeyInfo keyInfo in keyListener.queue)
+            {
+                OnKeyPressed(keyInfo);
             }
         }
     }

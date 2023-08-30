@@ -621,7 +621,6 @@ GameObject:
   m_Component:
   - component: {fileID: 665749551}
   - component: {fileID: 665749552}
-  - component: {fileID: 665749553}
   m_Layer: 0
   m_Name: Console
   m_TagString: Untagged
@@ -662,21 +661,9 @@ MonoBehaviour:
     type: 3}
   terminalWidth: 80
   terminalHeight: 24
-  heldKeyDelay: 0.1
+  heldKeyDelay: 0.07
   heldKeyTriggerTime: 0.5
   isKeyHeld: 0
---- !u!114 &665749553
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 665749550}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 4ce47b530373b164aae7bced41489863, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
 --- !u!1 &792747356
 GameObject:
   m_ObjectHideFlags: 0
