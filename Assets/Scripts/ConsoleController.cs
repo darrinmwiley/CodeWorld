@@ -6,42 +6,43 @@ using System;
 
 public class ConsoleController : MonoBehaviour
 {
-    //TODO any character that isn't in in KeyCodes should be tracked for hold too
-    //TODO tabs
-        //write in spaces, delete in tabs (when applicable)
+    //TODO Cosmetic
+        //console frame
+        //menu options (save, load, new, font size)
     //TODO Mouse input
-        //highlighting
-    //TODO CRTLY + CTRLZ
-    //TODO CTRLX + CTRLC + CTRLV
+        //clickable scrollbar bottom and right when applicable
+        //resize on edges
+        //drag on top
+        //highlighting elsewhere
+    //TODO CTRLC, CTRLV, CTRLX, CRTLY, CTRLZ
+    //rework the console to be driven by font size and dispay as many lines as will fit
+    //any roundoff padding we can just give to the line number padding or similar
+
 
     public GameObject consoleCharPrefab;
     public GameObject cursorPrefab;
+    public MouseListener mouseListener;
 
     public int terminalWidth = 80;
     public int terminalHeight = 24;
+    public int spacesPerTab = 4;
     RenderTexture renderTexture;
 
     GameObject[,] chars;
     GameObject cursor;
 
     List<string> lines = new List<string>();
-    KeyListener keyListener;
 
     int cursorRow = 0;
     int cursorCol = 0;
     int visibleCursorCol = 0;
 
-    public float heldKeyDelay = .01f;
-    public float heldKeyTriggerTime = .5f;
-    public bool isKeyHeld = false;
-    float lastHeldKeyTriggerTime;
-
-    KeyInfo previousHeldKey = null;
-
     // Start is called before the first frame update
     void Start()
     {
-        keyListener = gameObject.GetComponent<KeyListener>();
+        mouseListener.AddMouseDownHandler(OnMouseDown);
+        mouseListener.AddMouseUpHandler(OnMouseUp);
+        mouseListener.AddMouseDragHandler(OnMouseDrag);
         InitKeyHandlers();
         lines.Add("");
         Generate();
@@ -70,7 +71,6 @@ public class ConsoleController : MonoBehaviour
         return Instantiate(consoleCharPrefab, new Vector3Int(0,0,0), Quaternion.identity);
     }
 
-    //TODO ON KEY PRESS PULL UP A TERMINAL IN UI SPACE (camera stacking?)
     //ALLOW CORNER RESIZE BUT MAINTAIN ASPECT RATIO
     //TODO RECIEVE KEY PRESS EVENTS
     //PORT IN EVENT LISTENER IDEA (SUBSCRIBE TO EVENT TYPE USING ?DELEGATES?)
@@ -198,6 +198,7 @@ public class ConsoleController : MonoBehaviour
 
     public void OnReturnPressed()
     {
+        Debug.Log("on return pressed");
         string beginningOfLine = lines[cursorRow].Substring(0,visibleCursorCol);  
         string restOfLine = lines[cursorRow].Substring(visibleCursorCol); 
 
@@ -206,6 +207,13 @@ public class ConsoleController : MonoBehaviour
         cursorRow++;
         visibleCursorCol = cursorCol = 0;
         UpdateConsole();
+    }
+
+    public void OnTabPressed()
+    {
+        do{
+            OnKeyPressed(' ');
+        }while(visibleCursorCol % spacesPerTab != 0);
     }
 
     void UpdateLines(){
@@ -258,14 +266,32 @@ public class ConsoleController : MonoBehaviour
         }
     }
 
+    //you can backtab if there is nothing but spaces behind you
+    //TODO: optimize this to O(1) by keeping track of index of first non-space char of each line
+    public bool CanBackspaceTab()
+    {
+        if(visibleCursorCol == 0)
+            return false;
+        for(int i = 0;i<visibleCursorCol;i++)
+        {
+            if(lines[cursorRow][i] != ' ')
+                return false;
+        }
+        return true;
+    }
+
     public void OnBackspacePressed()
     {
         if(cursorCol != 0)
         {
-            SetChar(cursorRow, cursorCol + GetLineCountPadding() - 1, ' ');
-            String line = lines[cursorRow];
-            lines[cursorRow] = line.Substring(0,cursorCol - 1) + line.Substring(cursorCol);
-            visibleCursorCol = --cursorCol;
+            bool canBackspaceTab = CanBackspaceTab();
+            do{
+                SetChar(cursorRow, visibleCursorCol + GetLineCountPadding() - 1, ' ');
+                String line = lines[cursorRow];
+                lines[cursorRow] = line.Substring(0,visibleCursorCol - 1) + line.Substring(visibleCursorCol);
+                cursorCol = --visibleCursorCol;
+            }while(canBackspaceTab && visibleCursorCol % spacesPerTab != 0);
+            
         }else if(cursorRow != 0){
             int newCursorCol = lines[cursorRow - 1].Length;
             lines[cursorRow - 1] += lines[cursorRow];
@@ -274,7 +300,6 @@ public class ConsoleController : MonoBehaviour
             visibleCursorCol = cursorCol = newCursorCol;
         }
         UpdateConsole();
-        //TODO cut out one char, if line is empty cut out the line instead
     }
 
     public void OnUpArrowPressed()
@@ -313,25 +338,10 @@ public class ConsoleController : MonoBehaviour
         cursorCol = visibleCursorCol;
     }
 
-    void OnKeyPressed(KeyInfo keyInfo)
-    {
-        if(keyInfo.Code.HasValue){
-            if(specialKeyPressHandlers.ContainsKey(keyInfo.Code.Value))
-            {
-                specialKeyPressHandlers[keyInfo.Code.Value].Invoke();
-            }else if (KeyListener.KeyCodeToChar(keyInfo.Code.Value) != 0)
-            {
-                OnKeyPressed(keyInfo.ToChar());
-            }
-        }else{
-
-        }
-        
-    }
-
     void OnKeyPressed(char ch)
     {
-        //todo handle TAB press
+        if(ch == (char)(0))
+            return;
         lines[cursorRow] = lines[cursorRow].Insert(visibleCursorCol,ch+"");
         UpdateLines();
         cursorCol = ++visibleCursorCol;
@@ -354,66 +364,77 @@ public class ConsoleController : MonoBehaviour
     void InitKeyHandlers(){
         specialKeyPressHandlers = new Dictionary<KeyCode, Action>();
         specialKeyPressHandlers[KeyCode.Return] = OnReturnPressed;
+        specialKeyPressHandlers[KeyCode.KeypadEnter] = OnReturnPressed;
         specialKeyPressHandlers[KeyCode.Backspace] = OnBackspacePressed;
         specialKeyPressHandlers[KeyCode.LeftArrow] = OnLeftArrowPressed;
         specialKeyPressHandlers[KeyCode.RightArrow] = OnRightArrowPressed;
         specialKeyPressHandlers[KeyCode.UpArrow] = OnUpArrowPressed;
         specialKeyPressHandlers[KeyCode.DownArrow] = OnDownArrowPressed;
+        specialKeyPressHandlers[KeyCode.Tab] = OnTabPressed;
     }
 
-    KeyCode? GetSpecialKeyPressed()
+    KeyCode latest = KeyCode.None;
+    float latestDownTime = 0;
+    bool isKeyHeld = false;
+    public float heldKeyDelay = .005f;
+    public float heldKeyTriggerTime = .4f;
+    float lastHeldKeyTriggerTime = 0;
+
+    void OnMouseUp(MouseListener mouseListener)
     {
-        foreach(KeyCode keycode in specialKeyPressHandlers.Keys)
+        Debug.Log("mouse up");
+    }
+
+    void OnMouseDown(MouseListener mouseListener)
+    {
+        Debug.Log("mouse down");
+        int clickCol = (int)(mouseListener.currentMousePosition.x * terminalWidth);
+        int clickRow = (int)((1 - mouseListener.currentMousePosition.y) * terminalHeight);
+        SetCellColor(clickRow, clickCol, Color.red);
+    }
+
+    void OnMouseDrag(MouseListener mouseListener)
+    {
+        Debug.Log("drag");
+    }
+
+    void Update()
+    {
+        HashSet<char> excluded = new HashSet<char>(){(char)(8), (char)(13)};
+        foreach(char ch in Input.inputString)
         {
-            if(Input.GetKey(keycode))
-                return keycode;
+            if(!excluded.Contains(ch)){
+                Debug.Log("input: "+(int)(ch));
+                OnKeyPressed(ch);
+                latest = KeyCode.None;
+            }
         }
-        return null;
-    }
 
-    public void HandleHeldKey()
-    {
-        KeyInfo latest = keyListener.GetLatestKeyPress();
-        if(latest != null)
+        if(!Input.GetKey(latest))
+            isKeyHeld = false;
+
+        foreach(KeyCode specialKeyCode in specialKeyPressHandlers.Keys)
         {
-            if(!isKeyHeld && latest.IsKeyDown && Time.time - latest.LastDownTime > heldKeyTriggerTime)
+            if(Input.GetKeyDown(specialKeyCode))
             {
-                isKeyHeld = true;
+                if(specialKeyCode != latest)
+                    isKeyHeld = false;
+                specialKeyPressHandlers[specialKeyCode].Invoke();
+                latest = specialKeyCode;
+                latestDownTime = Time.time;
             }
-            if(!latest.IsKeyDown)
-            {
-                isKeyHeld = false;
-            }
-            if(latest != previousHeldKey)
-            {
-                isKeyHeld = false;
-            }
-            if(isKeyHeld)
-            {
-                if(Time.time - lastHeldKeyTriggerTime > heldKeyDelay)
+            if(Input.GetKey(specialKeyCode)){
+                if(specialKeyCode == latest && !isKeyHeld && Time.time - latestDownTime >= heldKeyTriggerTime)
                 {
+                    isKeyHeld = true;
                     lastHeldKeyTriggerTime = Time.time;
-                    OnKeyPressed(latest);
+                }else if(specialKeyCode == latest && isKeyHeld && Time.time - lastHeldKeyTriggerTime > heldKeyDelay)
+                {
+                    specialKeyPressHandlers[specialKeyCode].Invoke();
+                    lastHeldKeyTriggerTime = Time.time;
                 }
             }
         }
-        previousHeldKey = latest;
-    }
-
-    //TODO package KeyListener into GameSkeleton
-    // Update is called once per frame
-    void Update()
-    {
-        HandleHeldKey();
         UpdateCursor();
-        // Check for any input from the user
-
-        if (!isKeyHeld)
-        {
-            foreach(KeyInfo keyInfo in keyListener.queue)
-            {
-                OnKeyPressed(keyInfo);
-            }
-        }
     }
 }
