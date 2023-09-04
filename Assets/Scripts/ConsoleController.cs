@@ -7,9 +7,9 @@ using System;
 public class ConsoleController : MonoBehaviour
 {
     /*TODO: 
-        1) highlight
+        1) horizontal auto-scrolling
         2) scrolling (while dragging even, maintaining highlight)
-        3) cmd keys
+        3) cmd keys (GUIUtility.systemCopyBuffer can help with clipboard - you need to split on /r)
 
     //TODO Cosmetic
         //console frame
@@ -18,7 +18,6 @@ public class ConsoleController : MonoBehaviour
         //clickable scrollbar bottom and right when applicable
         //resize on edges
         //drag on top 
-        //highlighting elsewhere
     //TODO CTRLC, CTRLV, CTRLX, CRTLY, CTRLZ
     //rework the console to be driven by font size and dispay as many lines as will fit
     //any roundoff padding we can just give to the line number padding or similar
@@ -49,6 +48,8 @@ public class ConsoleController : MonoBehaviour
     Vector2Int dragStart;
     Vector2Int dragCurrent;
     Dictionary<KeyCode, Action> specialKeyPressHandlers;
+
+    bool isHighlighting;
 
     int verticalScroll;
     //int horizontalScroll;
@@ -82,6 +83,8 @@ public class ConsoleController : MonoBehaviour
     {
         UpdateLineNumbers();
         UpdateLines();
+        if(isHighlighting)
+            UpdateHighlight();
     }
 
     void UpdateCursor()
@@ -200,6 +203,8 @@ public class ConsoleController : MonoBehaviour
 
     public void OnReturnPressed()
     {
+        if(isHighlighting)
+            DeleteHighlight();
         string beginningOfLine = lines[cursorRow + verticalScroll].Substring(0,visibleCursorCol);  
         string restOfLine = lines[cursorRow + verticalScroll].Substring(visibleCursorCol); 
 
@@ -281,7 +286,9 @@ public class ConsoleController : MonoBehaviour
 
     public void OnBackspacePressed()
     {
-        if(cursorCol != 0)
+        if(isHighlighting)
+            DeleteHighlight();
+        else if(cursorCol != 0)
         {
             bool canBackspaceTab = CanBackspaceTab();
             do{
@@ -306,6 +313,8 @@ public class ConsoleController : MonoBehaviour
 
     public void OnUpArrowPressed()
     {
+        if(isHighlighting)
+            EndHighlight();
         if(cursorRow == 0)
         {
             if(verticalScroll != 0)
@@ -321,6 +330,8 @@ public class ConsoleController : MonoBehaviour
 
     public void OnDownArrowPressed()
     {
+        if(isHighlighting)
+            EndHighlight();
         if(cursorRow + verticalScroll >= lines.Count - 1)
             return;
         if(cursorRow != viewportHeight - 2)
@@ -337,6 +348,8 @@ public class ConsoleController : MonoBehaviour
 
     public void OnLeftArrowPressed()
     {
+        if(isHighlighting)
+            EndHighlight();
         if(visibleCursorCol != 0)
             visibleCursorCol--;
         else if(cursorRow + verticalScroll != 0)
@@ -353,6 +366,8 @@ public class ConsoleController : MonoBehaviour
 
     public void OnRightArrowPressed()
     {
+        if(isHighlighting)
+            EndHighlight();
         if(visibleCursorCol != lines[cursorRow + verticalScroll].Length)
             visibleCursorCol++;
         else {
@@ -371,11 +386,13 @@ public class ConsoleController : MonoBehaviour
 
     void OnKeyPressed(char ch)
     {
+        if(isHighlighting)
+            DeleteHighlight();
         if(ch == (char)(0))
             return;
         lines[cursorRow + verticalScroll] = lines[cursorRow + verticalScroll].Insert(visibleCursorCol,ch+"");
-        UpdateLines();
         cursorCol = ++visibleCursorCol;
+        UpdateConsole();
     }
 
     void SetChar(int r, int c, char ch)
@@ -403,20 +420,20 @@ public class ConsoleController : MonoBehaviour
 
     Vector2Int GetCursorLocationForMouse()
     {
-        int r = Mathf.Max(0,Mathf.Min(lines.Count - 1 - verticalScroll,(int)((1 - mouseListener.currentMousePosition.y) * viewportHeight + .25)));
+        int r = Mathf.Max(0,Mathf.Min(lines.Count - 1 - verticalScroll,(int)((1 - mouseListener.currentMousePosition.y) * viewportHeight)));
         int c = Mathf.Max(0,Mathf.Min(lines[r + verticalScroll].Length,(int)(mouseListener.currentMousePosition.x * viewportWidth + .5) - GetLineCountPadding()));
         return new Vector2Int(r, c);
     }
 
     void OnMouseDown(MouseListener mouseListener)
     {
+        isHighlighting = true;
         Vector2Int cursorLocation = GetCursorLocationForMouse();
         dragStart = new Vector2Int(cursorLocation.x + verticalScroll, cursorLocation.y);
         dragCurrent = new Vector2Int(cursorLocation.x + verticalScroll, cursorLocation.y);
         cursorRow = cursorLocation.x;
         visibleCursorCol = cursorCol = cursorLocation.y;
         UpdateConsole();
-        UpdateHighlight();
     }
 
     void OnMouseDrag(MouseListener mouseListener)
@@ -424,7 +441,6 @@ public class ConsoleController : MonoBehaviour
         Vector2Int cursorLocation = GetCursorLocationForMouse();
         dragCurrent = new Vector2Int(cursorLocation.x + verticalScroll, cursorLocation.y);
         UpdateConsole();
-        UpdateHighlight();
     }
 
     void UpdateHighlight()
@@ -443,15 +459,14 @@ public class ConsoleController : MonoBehaviour
         int r = r1;
         int c = c1;
         bool done = false;
-        Debug.Log(r1+" "+c1+" "+r2+" "+c2);
         while(!done && (r != r2 || c != c2))
         {
-            if(c < lines[r].Length){
+            if(c <= lines[r].Length){
                 int viewportR = r - verticalScroll;
                 if(viewportR >= 0 && viewportR < viewportHeight)
-                Highlight(viewportR, c + GetLineCountPadding());
+                    Highlight(viewportR, c + GetLineCountPadding());
             }  
-            if(c < lines[r].Length - 1){
+            if(c <= lines[r].Length - 1){
                 c++;
             }else{
                 if(r == r2 && c == c2 - 1){
@@ -462,6 +477,40 @@ public class ConsoleController : MonoBehaviour
                 r++;
             }
         }
+    }
+
+    void EndHighlight()
+    {
+        isHighlighting = false;
+    }
+
+    void DeleteHighlight()
+    {
+        int r1 = dragStart.x;
+        int c1 = dragStart.y;
+        int r2 = dragCurrent.x;
+        int c2 = dragCurrent.y;
+        if(dragCurrent.x < dragStart.x || (dragCurrent.x == dragStart.x && dragCurrent.y < dragStart.y))
+        {
+            r1 = dragCurrent.x;
+            c1 = dragCurrent.y;
+            r2 = dragStart.x;
+            c2 = dragStart.y;
+        } 
+        EndHighlight();
+        if(r1 == r2)
+            lines[r1] = lines[r1].Substring(0,c1) + lines[r1].Substring(c2);
+        else{
+            int fullLines = r2 - r1 - 1;
+            for(int i = 0;i<fullLines;i++)
+            {
+                lines.RemoveAt(r1 + 1);
+            }
+            lines[r1] = lines[r1].Substring(0,c1) + lines[r1+1].Substring(c2);
+            lines.RemoveAt(r1+1);
+        }
+        cursorRow = r1 - verticalScroll;
+        cursorCol = visibleCursorCol = c1;
     }
 
     void Highlight(int r, int c)
