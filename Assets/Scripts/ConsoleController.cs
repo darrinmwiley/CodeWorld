@@ -6,6 +6,9 @@ using System;
 
 public class ConsoleController : MonoBehaviour
 {
+    /*TODO: 
+        1) do something about line count padding
+
     //TODO Cosmetic
         //console frame
         //menu options (save, load, new, font size)
@@ -17,7 +20,7 @@ public class ConsoleController : MonoBehaviour
     //TODO CTRLC, CTRLV, CTRLX, CRTLY, CTRLZ
     //rework the console to be driven by font size and dispay as many lines as will fit
     //any roundoff padding we can just give to the line number padding or similar
-
+    */
 
     public GameObject consoleCharPrefab;
     public GameObject cursorPrefab;
@@ -72,8 +75,6 @@ public class ConsoleController : MonoBehaviour
     }
 
     //ALLOW CORNER RESIZE BUT MAINTAIN ASPECT RATIO
-    //TODO RECIEVE KEY PRESS EVENTS
-    //PORT IN EVENT LISTENER IDEA (SUBSCRIBE TO EVENT TYPE USING ?DELEGATES?)
 
     //IDEA WRAPPER ON CONSOLE THAT CAN ALSO OPEN FILES, SCROLL, CLICK CURSOR, ETC
 
@@ -198,7 +199,6 @@ public class ConsoleController : MonoBehaviour
 
     public void OnReturnPressed()
     {
-        Debug.Log("on return pressed");
         string beginningOfLine = lines[cursorRow].Substring(0,visibleCursorCol);  
         string restOfLine = lines[cursorRow].Substring(visibleCursorCol); 
 
@@ -219,16 +219,13 @@ public class ConsoleController : MonoBehaviour
     void UpdateLines(){
         //TODO make padding a var instead of a method
         int padding = GetLineCountPadding();
-        for(int i = 0;i<terminalHeight;i++)
-        {
-            for(int j = padding;j<terminalWidth;j++)
-            {
-                if(lines.Count > i && lines[i].Length > j - padding)
-                {
-                    SetCellColor(i,j,Color.black);
+        for(int i = 0;i<terminalHeight;i++){
+            for(int j = padding;j<terminalWidth;j++){
+                SetCellColor(i,j,Color.black);
+                SetCellTextColor(i,j,Color.white);
+                if(lines.Count > i && lines[i].Length > j - padding){
                     SetChar(i,j,lines[i][j - padding]);
                 }else{
-                    SetCellColor(i,j,Color.black);
                     SetChar(i,j,' ');
                 }
             }
@@ -359,6 +356,12 @@ public class ConsoleController : MonoBehaviour
         cell.GetComponent<ConsoleCharController>().UpdateColor(color);
     }
 
+    void SetCellTextColor(int r, int c, Color color)
+    {
+        GameObject cell = chars[r,c];
+        cell.GetComponent<ConsoleCharController>().UpdateTextColor(color);
+    }
+
     Dictionary<KeyCode, Action> specialKeyPressHandlers;
     
     void InitKeyHandlers(){
@@ -380,22 +383,77 @@ public class ConsoleController : MonoBehaviour
     public float heldKeyTriggerTime = .4f;
     float lastHeldKeyTriggerTime = 0;
 
+    Vector2Int dragCurrent;
+
     void OnMouseUp(MouseListener mouseListener)
     {
-        Debug.Log("mouse up");
+        Vector2Int cursorLocation = GetCursorLocationForMouse();
+    }
+
+    Vector2Int GetCursorLocationForMouse()
+    {
+        int r = Mathf.Max(0,Mathf.Min(lines.Count - 1,(int)((1 - mouseListener.currentMousePosition.y) * terminalHeight + .25)));
+        int c = Mathf.Max(0,Mathf.Min(lines[r].Length,(int)(mouseListener.currentMousePosition.x * terminalWidth + .5) - GetLineCountPadding()));
+        return new Vector2Int(r, c);
     }
 
     void OnMouseDown(MouseListener mouseListener)
     {
-        Debug.Log("mouse down");
-        int clickCol = (int)(mouseListener.currentMousePosition.x * terminalWidth);
-        int clickRow = (int)((1 - mouseListener.currentMousePosition.y) * terminalHeight);
-        SetCellColor(clickRow, clickCol, Color.red);
+        Vector2Int cursorLocation = GetCursorLocationForMouse();
+        dragCurrent = cursorLocation;
+        cursorRow = cursorLocation.x;
+        visibleCursorCol = cursorCol = cursorLocation.y;
+        UpdateConsole();
+        UpdateHighlight();
     }
 
     void OnMouseDrag(MouseListener mouseListener)
     {
-        Debug.Log("drag");
+        dragCurrent = GetCursorLocationForMouse();
+        UpdateConsole();
+        UpdateHighlight();
+    }
+
+    void UpdateHighlight()
+    {
+        int r1 = cursorRow;
+        int c1 = cursorCol;
+        int r2 = dragCurrent.x;
+        int c2 = dragCurrent.y;
+        if(dragCurrent.x < cursorRow || (dragCurrent.x == cursorRow && dragCurrent.y < visibleCursorCol))
+        {
+            r1 = dragCurrent.x;
+            c1 = dragCurrent.y;
+            r2 = cursorRow;
+            c2 = cursorCol;
+        } 
+        int r = r1;
+        int c = c1;
+        Debug.Log(r1+" "+c1+" "+r2+" "+c2);
+        bool done = false;
+        while(!done && (r != r2 || c != c2))
+        {
+            if(c < lines[r].Length)
+                Highlight(r, c + GetLineCountPadding());
+            if(c < lines[r].Length - 1){
+                c++;
+            }else{
+                if(r == r2 && c == c2 - 1){
+                    done = true;
+                    break;
+                }
+                c = 0;
+                r++;
+            }
+        }
+    }
+
+    void Highlight(int r, int c)
+    {
+        Debug.Log("highlight "+r+" "+c);
+        GameObject cell = chars[r,c];
+        cell.GetComponent<ConsoleCharController>().UpdateColor(Color.white);
+        cell.GetComponent<ConsoleCharController>().UpdateTextColor(Color.black);
     }
 
     void Update()
@@ -404,7 +462,6 @@ public class ConsoleController : MonoBehaviour
         foreach(char ch in Input.inputString)
         {
             if(!excluded.Contains(ch)){
-                Debug.Log("input: "+(int)(ch));
                 OnKeyPressed(ch);
                 latest = KeyCode.None;
             }

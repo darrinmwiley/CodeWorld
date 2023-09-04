@@ -4,8 +4,8 @@ using System.Collections.Generic;
 
 public class MouseListener : MonoBehaviour, IPointerDownHandler, IPointerUpHandler, IDragHandler
 {
-    bool isMouseDown = false;
-    bool isMouseDragging = false;
+    public bool isMouseDown = false;
+    public bool isMouseDragging = false;
     public Vector2 mouseDownPosition;
     public Vector2 currentMousePosition;
 
