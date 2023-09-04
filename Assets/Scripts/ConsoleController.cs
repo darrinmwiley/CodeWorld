@@ -7,7 +7,9 @@ using System;
 public class ConsoleController : MonoBehaviour
 {
     /*TODO: 
-        1) do something about line count padding
+        1) highlight
+        2) scrolling (while dragging even, maintaining highlight)
+        3) cmd keys
 
     //TODO Cosmetic
         //console frame
@@ -15,30 +17,41 @@ public class ConsoleController : MonoBehaviour
     //TODO Mouse input
         //clickable scrollbar bottom and right when applicable
         //resize on edges
-        //drag on top
+        //drag on top 
         //highlighting elsewhere
     //TODO CTRLC, CTRLV, CTRLX, CRTLY, CTRLZ
     //rework the console to be driven by font size and dispay as many lines as will fit
     //any roundoff padding we can just give to the line number padding or similar
     */
 
+    
+
     public GameObject consoleCharPrefab;
     public GameObject cursorPrefab;
     public MouseListener mouseListener;
-
-    public int terminalWidth = 80;
-    public int terminalHeight = 24;
+    public int viewportWidth = 80;
+    public int viewportHeight = 24;
     public int spacesPerTab = 4;
-    RenderTexture renderTexture;
+    public float heldKeyDelay = .005f;
+    public float heldKeyTriggerTime = .4f;
 
+    RenderTexture renderTexture;
     GameObject[,] chars;
     GameObject cursor;
-
     List<string> lines = new List<string>();
-
     int cursorRow = 0;
     int cursorCol = 0;
     int visibleCursorCol = 0;
+    KeyCode latest = KeyCode.None;
+    float latestDownTime = 0;
+    bool isKeyHeld = false;
+    float lastHeldKeyTriggerTime = 0;
+    Vector2Int dragStart;
+    Vector2Int dragCurrent;
+    Dictionary<KeyCode, Action> specialKeyPressHandlers;
+
+    int verticalScroll;
+    //int horizontalScroll;
 
     // Start is called before the first frame update
     void Start()
@@ -52,6 +65,18 @@ public class ConsoleController : MonoBehaviour
         UpdateConsole();
     }
 
+    void InitKeyHandlers(){
+        specialKeyPressHandlers = new Dictionary<KeyCode, Action>();
+        specialKeyPressHandlers[KeyCode.Return] = OnReturnPressed;
+        specialKeyPressHandlers[KeyCode.KeypadEnter] = OnReturnPressed;
+        specialKeyPressHandlers[KeyCode.Backspace] = OnBackspacePressed;
+        specialKeyPressHandlers[KeyCode.LeftArrow] = OnLeftArrowPressed;
+        specialKeyPressHandlers[KeyCode.RightArrow] = OnRightArrowPressed;
+        specialKeyPressHandlers[KeyCode.UpArrow] = OnUpArrowPressed;
+        specialKeyPressHandlers[KeyCode.DownArrow] = OnDownArrowPressed;
+        specialKeyPressHandlers[KeyCode.Tab] = OnTabPressed;
+    }
+
     //first, we will simply make it as many lines as we can hold. Scrolling to be added later
     void UpdateConsole()
     {
@@ -62,7 +87,7 @@ public class ConsoleController : MonoBehaviour
     void UpdateCursor()
     {
         int trueCursorCol = visibleCursorCol + GetLineCountPadding();
-        cursor.transform.position = new Vector3((trueCursorCol * 3f / 5f) + .05f, terminalHeight - 1 - cursorRow + .5f, -.1f);
+        cursor.transform.position = new Vector3((trueCursorCol * 3f / 5f) + .05f, viewportHeight - 1 - cursorRow + .5f, -.1f);
     }
 
     int GetLineCountPadding(){
@@ -74,33 +99,15 @@ public class ConsoleController : MonoBehaviour
         return Instantiate(consoleCharPrefab, new Vector3Int(0,0,0), Quaternion.identity);
     }
 
-    //ALLOW CORNER RESIZE BUT MAINTAIN ASPECT RATIO
-
-    //IDEA WRAPPER ON CONSOLE THAT CAN ALSO OPEN FILES, SCROLL, CLICK CURSOR, ETC
-
-    //NEED FILESYSTEM
-
-    //IDEA EACH OBJECT GETS ITS OWN SCRIPTS SUBDIRECTORY 
-
-    // Function to create a RenderTexture with the same aspect ratio as the input camera
     public RenderTexture CreateRenderTexture(Camera camera, int renderTextureWidth)
     {
-        // Calculate the aspect ratio based on the camera's properties
         float aspectRatio = camera.aspect;
-
-        // Define the desired resolution (you can adjust this as needed)
         int renderTextureHeight = Mathf.RoundToInt(renderTextureWidth / aspectRatio); // Calculate height based on aspect ratio
-
-        // Create a RenderTexture with the calculated resolution
         RenderTexture renderTexture = new RenderTexture(renderTextureWidth, renderTextureHeight, 24);
         renderTexture.name = "CameraRenderTexture"; // Set a name for the RenderTexture
         renderTexture.antiAliasing = Mathf.Max(1, QualitySettings.antiAliasing); // Use the camera's anti-aliasing settings or default to 1
         renderTexture.filterMode = FilterMode.Bilinear; // You can adjust the filter mode as needed
-
-        // Set the camera's target texture to the newly created RenderTexture
         camera.targetTexture = renderTexture;
-
-        // Return the created RenderTexture
         return renderTexture;
     }
 
@@ -118,21 +125,21 @@ public class ConsoleController : MonoBehaviour
             DestroyImmediate(child.gameObject);
         }
 
-        chars = new GameObject[terminalHeight, terminalWidth];
+        chars = new GameObject[viewportHeight, viewportWidth];
 
-        for(int i = 0;i<terminalWidth;i++)
+        for(int i = 0;i<viewportWidth;i++)
         {
-            for(int j = 0;j<terminalHeight;j++)
+            for(int j = 0;j<viewportHeight;j++)
             {
                 GameObject cube = SpawnConsoleChar();
                 cube.transform.parent = charsGO.transform;
-                cube.transform.position = new Vector3((i * 3f / 5f) + .3f, terminalHeight - 1 - j + .5f, 0);
+                cube.transform.position = new Vector3((i * 3f / 5f) + .3f, viewportHeight - 1 - j + .5f, 0);
                 chars[j,i] = cube;
             }
         }
 
         cursor = Instantiate(cursorPrefab, new Vector3Int(0,0,0), Quaternion.identity);
-        cursor.transform.position = new Vector3((3 * 3f / 5f) + .05f, terminalHeight - 1 + .5f, -.1f);
+        cursor.transform.position = new Vector3((3 * 3f / 5f) + .05f, viewportHeight - 1 + .5f, -.1f);
 
         Bounds bounds = GetBounds();
         Camera camera = cameraGO.GetComponent<Camera>();
@@ -156,16 +163,10 @@ public class ConsoleController : MonoBehaviour
 
     public Bounds GetBounds()
     {
-        // Get the initial bounds from the root GameObject.
         Bounds bounds = new Bounds(transform.position, Vector3.zero);
-
-        // Iterate through all renderers in the hierarchy.
         Renderer[] renderers = GetComponentsInChildren<Renderer>();
         foreach (Renderer renderer in renderers)
-        {
             bounds.Encapsulate(renderer.bounds);
-        }
-
         return bounds;
     }
 
@@ -199,12 +200,15 @@ public class ConsoleController : MonoBehaviour
 
     public void OnReturnPressed()
     {
-        string beginningOfLine = lines[cursorRow].Substring(0,visibleCursorCol);  
-        string restOfLine = lines[cursorRow].Substring(visibleCursorCol); 
+        string beginningOfLine = lines[cursorRow + verticalScroll].Substring(0,visibleCursorCol);  
+        string restOfLine = lines[cursorRow + verticalScroll].Substring(visibleCursorCol); 
 
-        lines[cursorRow] = beginningOfLine;
-        lines.Insert(cursorRow + 1, restOfLine);
-        cursorRow++;
+        lines[cursorRow + verticalScroll] = beginningOfLine;
+        lines.Insert(cursorRow + verticalScroll + 1, restOfLine);
+        if(cursorRow != viewportHeight - 2)
+            cursorRow++;
+        else
+            verticalScroll++;
         visibleCursorCol = cursorCol = 0;
         UpdateConsole();
     }
@@ -217,14 +221,14 @@ public class ConsoleController : MonoBehaviour
     }
 
     void UpdateLines(){
-        //TODO make padding a var instead of a method
         int padding = GetLineCountPadding();
-        for(int i = 0;i<terminalHeight;i++){
-            for(int j = padding;j<terminalWidth;j++){
+        for(int i = 0;i<viewportHeight;i++){
+            for(int j = padding;j<viewportWidth;j++){
                 SetCellColor(i,j,Color.black);
                 SetCellTextColor(i,j,Color.white);
-                if(lines.Count > i && lines[i].Length > j - padding){
-                    SetChar(i,j,lines[i][j - padding]);
+                int lineNumber = i + verticalScroll;
+                if(lines.Count > lineNumber && lines[lineNumber].Length > j - padding){
+                    SetChar(i,j,lines[lineNumber][j - padding]);
                 }else{
                     SetChar(i,j,' ');
                 }
@@ -237,11 +241,11 @@ public class ConsoleController : MonoBehaviour
         int maxLineNumberLength = (""+(lines.Count)).Length;
         int totalLineNumberLength = maxLineNumberLength + 2;
 
-        for(int i = 0;i<terminalHeight;i++)
+        for(int i = 0;i<viewportHeight;i++)
         {
-            if(i < lines.Count)
+            if(verticalScroll + i < lines.Count)
             {
-                string lineNumber = (i + 1 + "");
+                string lineNumber = (verticalScroll + i + 1 + "");
                 for(int j = 0;j<totalLineNumberLength;j++)
                 {
                     SetCellColor(i,j,new Color(.15f,.15f,.15f));
@@ -263,15 +267,13 @@ public class ConsoleController : MonoBehaviour
         }
     }
 
-    //you can backtab if there is nothing but spaces behind you
-    //TODO: optimize this to O(1) by keeping track of index of first non-space char of each line
     public bool CanBackspaceTab()
     {
         if(visibleCursorCol == 0)
             return false;
         for(int i = 0;i<visibleCursorCol;i++)
         {
-            if(lines[cursorRow][i] != ' ')
+            if(lines[cursorRow + verticalScroll][i] != ' ')
                 return false;
         }
         return true;
@@ -284,16 +286,19 @@ public class ConsoleController : MonoBehaviour
             bool canBackspaceTab = CanBackspaceTab();
             do{
                 SetChar(cursorRow, visibleCursorCol + GetLineCountPadding() - 1, ' ');
-                String line = lines[cursorRow];
-                lines[cursorRow] = line.Substring(0,visibleCursorCol - 1) + line.Substring(visibleCursorCol);
+                String line = lines[cursorRow + verticalScroll];
+                lines[cursorRow + verticalScroll] = line.Substring(0,visibleCursorCol - 1) + line.Substring(visibleCursorCol);
                 cursorCol = --visibleCursorCol;
             }while(canBackspaceTab && visibleCursorCol % spacesPerTab != 0);
             
-        }else if(cursorRow != 0){
-            int newCursorCol = lines[cursorRow - 1].Length;
-            lines[cursorRow - 1] += lines[cursorRow];
-            lines.RemoveAt(cursorRow);
-            cursorRow--;
+        }else if(cursorRow + verticalScroll != 0){
+            int newCursorCol = lines[cursorRow + verticalScroll - 1].Length;
+            lines[cursorRow + verticalScroll - 1] += lines[cursorRow + verticalScroll];
+            lines.RemoveAt(cursorRow + verticalScroll);
+            if(cursorRow == 0)
+                verticalScroll--;
+            else
+                cursorRow--;
             visibleCursorCol = cursorCol = newCursorCol;
         }
         UpdateConsole();
@@ -301,45 +306,74 @@ public class ConsoleController : MonoBehaviour
 
     public void OnUpArrowPressed()
     {
-        cursorRow = Mathf.Max(0,cursorRow - 1);
-        visibleCursorCol = Mathf.Min(cursorCol, lines[cursorRow].Length);
+        if(cursorRow == 0)
+        {
+            if(verticalScroll != 0)
+            {
+                verticalScroll--;
+            }
+        }else{
+            cursorRow--;
+            visibleCursorCol = Mathf.Min(cursorCol, lines[cursorRow].Length);
+        }
+        UpdateConsole();
     }
 
     public void OnDownArrowPressed()
     {
-        cursorRow = Mathf.Min(lines.Count - 1, cursorRow + 1);
-        visibleCursorCol = Mathf.Min(cursorCol, lines[cursorRow].Length);
+        if(cursorRow + verticalScroll >= lines.Count - 1)
+            return;
+        if(cursorRow != viewportHeight - 2)
+            cursorRow++;
+        else if(cursorRow + verticalScroll + 1 < lines.Count){
+            verticalScroll++;
+        }
+        else{
+            cursorRow = viewportHeight - 1;
+        }
+        visibleCursorCol = Mathf.Min(cursorCol, lines[cursorRow + verticalScroll].Length);
+        UpdateConsole();
     }
 
     public void OnLeftArrowPressed()
     {
         if(visibleCursorCol != 0)
             visibleCursorCol--;
-        else if(cursorRow != 0)
+        else if(cursorRow + verticalScroll != 0)
         {
-            cursorRow--;
-            visibleCursorCol = lines[cursorRow].Length;
+            if(cursorRow != 0)
+                cursorRow--;
+            else
+                verticalScroll--;
+            visibleCursorCol = lines[cursorRow + verticalScroll].Length;
         }
         cursorCol = visibleCursorCol;
+        UpdateConsole();
     }
 
     public void OnRightArrowPressed()
     {
-        if(visibleCursorCol != lines[cursorRow].Length)
+        if(visibleCursorCol != lines[cursorRow + verticalScroll].Length)
             visibleCursorCol++;
-        else if(cursorRow != lines.Count - 1)
-        {
-            cursorRow++;
-            visibleCursorCol = 0;
+        else {
+            if(cursorRow + verticalScroll + 1 < lines.Count)
+            {
+                if(cursorRow != viewportHeight - 2)
+                    cursorRow++;
+                else
+                    verticalScroll++;
+                visibleCursorCol = 0;
+            }
         }
         cursorCol = visibleCursorCol;
+        UpdateConsole();
     }
 
     void OnKeyPressed(char ch)
     {
         if(ch == (char)(0))
             return;
-        lines[cursorRow] = lines[cursorRow].Insert(visibleCursorCol,ch+"");
+        lines[cursorRow + verticalScroll] = lines[cursorRow + verticalScroll].Insert(visibleCursorCol,ch+"");
         UpdateLines();
         cursorCol = ++visibleCursorCol;
     }
@@ -362,29 +396,6 @@ public class ConsoleController : MonoBehaviour
         cell.GetComponent<ConsoleCharController>().UpdateTextColor(color);
     }
 
-    Dictionary<KeyCode, Action> specialKeyPressHandlers;
-    
-    void InitKeyHandlers(){
-        specialKeyPressHandlers = new Dictionary<KeyCode, Action>();
-        specialKeyPressHandlers[KeyCode.Return] = OnReturnPressed;
-        specialKeyPressHandlers[KeyCode.KeypadEnter] = OnReturnPressed;
-        specialKeyPressHandlers[KeyCode.Backspace] = OnBackspacePressed;
-        specialKeyPressHandlers[KeyCode.LeftArrow] = OnLeftArrowPressed;
-        specialKeyPressHandlers[KeyCode.RightArrow] = OnRightArrowPressed;
-        specialKeyPressHandlers[KeyCode.UpArrow] = OnUpArrowPressed;
-        specialKeyPressHandlers[KeyCode.DownArrow] = OnDownArrowPressed;
-        specialKeyPressHandlers[KeyCode.Tab] = OnTabPressed;
-    }
-
-    KeyCode latest = KeyCode.None;
-    float latestDownTime = 0;
-    bool isKeyHeld = false;
-    public float heldKeyDelay = .005f;
-    public float heldKeyTriggerTime = .4f;
-    float lastHeldKeyTriggerTime = 0;
-
-    Vector2Int dragCurrent;
-
     void OnMouseUp(MouseListener mouseListener)
     {
         Vector2Int cursorLocation = GetCursorLocationForMouse();
@@ -392,15 +403,16 @@ public class ConsoleController : MonoBehaviour
 
     Vector2Int GetCursorLocationForMouse()
     {
-        int r = Mathf.Max(0,Mathf.Min(lines.Count - 1,(int)((1 - mouseListener.currentMousePosition.y) * terminalHeight + .25)));
-        int c = Mathf.Max(0,Mathf.Min(lines[r].Length,(int)(mouseListener.currentMousePosition.x * terminalWidth + .5) - GetLineCountPadding()));
+        int r = Mathf.Max(0,Mathf.Min(lines.Count - 1 - verticalScroll,(int)((1 - mouseListener.currentMousePosition.y) * viewportHeight + .25)));
+        int c = Mathf.Max(0,Mathf.Min(lines[r + verticalScroll].Length,(int)(mouseListener.currentMousePosition.x * viewportWidth + .5) - GetLineCountPadding()));
         return new Vector2Int(r, c);
     }
 
     void OnMouseDown(MouseListener mouseListener)
     {
         Vector2Int cursorLocation = GetCursorLocationForMouse();
-        dragCurrent = cursorLocation;
+        dragStart = new Vector2Int(cursorLocation.x + verticalScroll, cursorLocation.y);
+        dragCurrent = new Vector2Int(cursorLocation.x + verticalScroll, cursorLocation.y);
         cursorRow = cursorLocation.x;
         visibleCursorCol = cursorCol = cursorLocation.y;
         UpdateConsole();
@@ -409,32 +421,36 @@ public class ConsoleController : MonoBehaviour
 
     void OnMouseDrag(MouseListener mouseListener)
     {
-        dragCurrent = GetCursorLocationForMouse();
+        Vector2Int cursorLocation = GetCursorLocationForMouse();
+        dragCurrent = new Vector2Int(cursorLocation.x + verticalScroll, cursorLocation.y);
         UpdateConsole();
         UpdateHighlight();
     }
 
     void UpdateHighlight()
     {
-        int r1 = cursorRow;
-        int c1 = cursorCol;
+        int r1 = dragStart.x;
+        int c1 = dragStart.y;
         int r2 = dragCurrent.x;
         int c2 = dragCurrent.y;
-        if(dragCurrent.x < cursorRow || (dragCurrent.x == cursorRow && dragCurrent.y < visibleCursorCol))
+        if(dragCurrent.x < dragStart.x || (dragCurrent.x == dragStart.x && dragCurrent.y < dragStart.y))
         {
             r1 = dragCurrent.x;
             c1 = dragCurrent.y;
-            r2 = cursorRow;
-            c2 = cursorCol;
+            r2 = dragStart.x;
+            c2 = dragStart.y;
         } 
         int r = r1;
         int c = c1;
-        Debug.Log(r1+" "+c1+" "+r2+" "+c2);
         bool done = false;
+        Debug.Log(r1+" "+c1+" "+r2+" "+c2);
         while(!done && (r != r2 || c != c2))
         {
-            if(c < lines[r].Length)
-                Highlight(r, c + GetLineCountPadding());
+            if(c < lines[r].Length){
+                int viewportR = r - verticalScroll;
+                if(viewportR >= 0 && viewportR < viewportHeight)
+                Highlight(viewportR, c + GetLineCountPadding());
+            }  
             if(c < lines[r].Length - 1){
                 c++;
             }else{
@@ -450,14 +466,22 @@ public class ConsoleController : MonoBehaviour
 
     void Highlight(int r, int c)
     {
-        Debug.Log("highlight "+r+" "+c);
         GameObject cell = chars[r,c];
         cell.GetComponent<ConsoleCharController>().UpdateColor(Color.white);
         cell.GetComponent<ConsoleCharController>().UpdateTextColor(Color.black);
     }
 
+    void OnScroll(float scrollInput)
+    {
+
+    }
+
     void Update()
     {
+        float scrollInput = Input.GetAxis("Mouse ScrollWheel");
+        if(scrollInput != 0)
+            OnScroll(scrollInput);
+
         HashSet<char> excluded = new HashSet<char>(){(char)(8), (char)(13)};
         foreach(char ch in Input.inputString)
         {
