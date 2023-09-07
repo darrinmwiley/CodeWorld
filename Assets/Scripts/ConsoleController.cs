@@ -7,9 +7,11 @@ using System;
 public class ConsoleController : MonoBehaviour
 {
     /*TODO: 
-        1) horizontal auto-scrolling
-        2) scrolling (while dragging even, maintaining highlight)
-        3) cmd keys (GUIUtility.systemCopyBuffer can help with clipboard - you need to split on /r)
+        1) reorganize brainstorming
+        2) horizontal scrolling
+        3) mouse wheel scrolling
+        4) mouse near top or bottom while dragging scrolling
+        3) ctrlY ctrlZ
 
     //TODO Cosmetic
         //console frame
@@ -412,13 +414,18 @@ public class ConsoleController : MonoBehaviour
     {
         if(Input.GetKey(KeyCode.LeftControl) || Input.GetKey(KeyCode.RightControl))
         {
-            DeleteHighlight();
-            foreach(string line in copyBuffer.Split("\n"))
+            if(isHighlighting)
+                DeleteHighlight();
+            string[] strs = copyBuffer.Split("\n");
+            for(int i = 0;i<strs.Length;i++)
             {
+                string line = strs[i];
                 foreach(char ch in line){
-                    OnKeyPressed(ch);
+                    OnKeyPressed(ch,false);
+                    Debug.Log("(after after) key pressed "+ch+", cursor col: "+cursorCol+" "+visibleCursorCol);
                 }
-                OnReturnPressed();
+                if(i != strs.Length - 1)
+                    OnReturnPressed();
             }
             UpdateConsole();
         }else{
@@ -468,15 +475,22 @@ public class ConsoleController : MonoBehaviour
         }
     }
 
-    void OnKeyPressed(char ch)
+    void OnKeyPressed(char ch){
+        OnKeyPressed(ch, true);
+    }
+
+    void OnKeyPressed(char ch, bool shouldUpdateConsole)
     {
+        Debug.Log("(before) key pressed "+ch+", cursor col: "+cursorCol+" "+visibleCursorCol);
         if(isHighlighting)
             DeleteHighlight();
         if(ch == (char)(0))
             return;
         lines[cursorRow + verticalScroll] = lines[cursorRow + verticalScroll].Insert(visibleCursorCol,ch+"");
         cursorCol = ++visibleCursorCol;
-        UpdateConsole();
+        Debug.Log("(after) key pressed "+ch+", cursor col: "+cursorCol+" "+visibleCursorCol);
+        if(shouldUpdateConsole)
+            UpdateConsole();
     }
 
     void SetChar(int r, int c, char ch)
@@ -511,7 +525,6 @@ public class ConsoleController : MonoBehaviour
 
     void OnMouseDown(MouseListener mouseListener)
     {
-        isHighlighting = true;
         Vector2Int cursorLocation = GetCursorLocationForMouse();
         dragStart = new Vector2Int(cursorLocation.x + verticalScroll, cursorLocation.y);
         dragCurrent = new Vector2Int(cursorLocation.x + verticalScroll, cursorLocation.y);
@@ -524,6 +537,8 @@ public class ConsoleController : MonoBehaviour
     {
         Vector2Int cursorLocation = GetCursorLocationForMouse();
         dragCurrent = new Vector2Int(cursorLocation.x + verticalScroll, cursorLocation.y);
+        if(dragCurrent.x != dragStart.x || dragCurrent.y != dragStart.y)
+            isHighlighting = true;
         UpdateConsole();
     }
 
