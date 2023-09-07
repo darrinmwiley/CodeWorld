@@ -23,8 +23,6 @@ public class ConsoleController : MonoBehaviour
     //any roundoff padding we can just give to the line number padding or similar
     */
 
-    
-
     public GameObject consoleCharPrefab;
     public GameObject cursorPrefab;
     public MouseListener mouseListener;
@@ -52,6 +50,8 @@ public class ConsoleController : MonoBehaviour
     bool isHighlighting;
 
     int verticalScroll;
+
+    string copyBuffer;
     //int horizontalScroll;
 
     // Start is called before the first frame update
@@ -76,6 +76,12 @@ public class ConsoleController : MonoBehaviour
         specialKeyPressHandlers[KeyCode.UpArrow] = OnUpArrowPressed;
         specialKeyPressHandlers[KeyCode.DownArrow] = OnDownArrowPressed;
         specialKeyPressHandlers[KeyCode.Tab] = OnTabPressed;
+        specialKeyPressHandlers[KeyCode.C] = OnCKeyPressed;
+        specialKeyPressHandlers[KeyCode.V] = OnVKeyPressed;
+        specialKeyPressHandlers[KeyCode.Z] = OnZKeyPressed;
+        specialKeyPressHandlers[KeyCode.Y] = OnYKeyPressed;
+        specialKeyPressHandlers[KeyCode.Z] = OnZKeyPressed;
+        specialKeyPressHandlers[KeyCode.X] = OnXKeyPressed;
     }
 
     //first, we will simply make it as many lines as we can hold. Scrolling to be added later
@@ -384,6 +390,84 @@ public class ConsoleController : MonoBehaviour
         UpdateConsole();
     }
 
+    bool IsUpperCase()
+    {
+        return (Input.GetKey(KeyCode.LeftControl) || Input.GetKey(KeyCode.RightControl)) ^ (Input.GetKey(KeyCode.LeftShift) || Input.GetKey(KeyCode.RightShift));
+    }
+
+    public void OnCKeyPressed()
+    {
+        if(Input.GetKey(KeyCode.LeftControl) || Input.GetKey(KeyCode.RightControl))
+        {
+            copyBuffer = GetHighlightedText();
+        }else{
+            if(IsUpperCase())
+                OnKeyPressed('C');
+            else
+                OnKeyPressed('c');
+        }
+    }
+
+    public void OnVKeyPressed()
+    {
+        if(Input.GetKey(KeyCode.LeftControl) || Input.GetKey(KeyCode.RightControl))
+        {
+            DeleteHighlight();
+            foreach(string line in copyBuffer.Split("\n"))
+            {
+                foreach(char ch in line){
+                    OnKeyPressed(ch);
+                }
+                OnReturnPressed();
+            }
+            UpdateConsole();
+        }else{
+            if(IsUpperCase())
+                OnKeyPressed('V');
+            else 
+                OnKeyPressed('v');
+        }
+    }
+
+    public void OnXKeyPressed()
+    {
+        if(Input.GetKey(KeyCode.LeftControl) || Input.GetKey(KeyCode.RightControl))
+        {
+            Debug.Log("cut");
+            copyBuffer = GetHighlightedText();
+            DeleteHighlight();
+            UpdateConsole();
+        }else if(IsUpperCase()){
+            OnKeyPressed('X');
+        }else{
+            OnKeyPressed('x');
+        }
+    }
+
+    public void OnYKeyPressed()
+    {
+        if(Input.GetKey(KeyCode.LeftControl) || Input.GetKey(KeyCode.RightControl))
+        {
+            Debug.Log("redo");
+        }else if(IsUpperCase()){
+            OnKeyPressed('Y');
+        }else{
+            OnKeyPressed('y');
+        }
+    }
+
+    public void OnZKeyPressed()
+    {
+        if(Input.GetKey(KeyCode.LeftControl) || Input.GetKey(KeyCode.RightControl))
+        {
+            Debug.Log("undo");
+        }else if(IsUpperCase()){
+            OnKeyPressed('Z');
+        }else{
+            OnKeyPressed('z');
+        }
+    }
+
     void OnKeyPressed(char ch)
     {
         if(isHighlighting)
@@ -479,6 +563,45 @@ public class ConsoleController : MonoBehaviour
         }
     }
 
+    string GetHighlightedText(){
+        int r1 = dragStart.x;
+        int c1 = dragStart.y;
+        int r2 = dragCurrent.x;
+        int c2 = dragCurrent.y;
+        if(dragCurrent.x < dragStart.x || (dragCurrent.x == dragStart.x && dragCurrent.y < dragStart.y))
+        {
+            r1 = dragCurrent.x;
+            c1 = dragCurrent.y;
+            r2 = dragStart.x;
+            c2 = dragStart.y;
+        } 
+        int r = r1;
+        int c = c1;
+        bool done = false;
+        string highlightedText = "";
+        while(!done && (r != r2 || c != c2))
+        {
+            if(c < lines[r].Length){
+                int viewportR = r - verticalScroll;
+                if(viewportR >= 0 && viewportR < viewportHeight){
+                    highlightedText += chars[viewportR, c + GetLineCountPadding()].GetComponent<ConsoleCharController>().GetChar();
+                }
+            }  
+            if(c <= lines[r].Length - 1){
+                c++;
+            }else{
+                if(r == r2 && c == c2 - 1){
+                    done = true;
+                    break;
+                }
+                c = 0;
+                r++;
+                highlightedText += "\n";
+            }
+        }
+        return highlightedText;
+    }
+
     void EndHighlight()
     {
         isHighlighting = false;
@@ -531,7 +654,7 @@ public class ConsoleController : MonoBehaviour
         if(scrollInput != 0)
             OnScroll(scrollInput);
 
-        HashSet<char> excluded = new HashSet<char>(){(char)(8), (char)(13)};
+        HashSet<char> excluded = new HashSet<char>(){(char)(8), (char)(13),'c','C','v','V','x','X','y','Y','z','Z'};
         foreach(char ch in Input.inputString)
         {
             if(!excluded.Contains(ch)){

@@ -5,8 +5,16 @@ using TMPro;
 
 public class ConsoleCharController : MonoBehaviour
 {
+    protected char Char;
+
+    public char GetChar()
+    {
+        return Char;
+    }
+
     public void UpdateText(string newText)
     {
+        Char = newText[0];
         Canvas canvas = gameObject.GetComponentInChildren<Canvas>();
 
         if (canvas != null)
