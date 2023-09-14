@@ -7,22 +7,21 @@ using System;
 public class ConsoleController : MonoBehaviour
 {
     /*TODO: 
-        1) reorganize brainstorming
         2) horizontal scrolling
         3) mouse wheel scrolling
         4) mouse near top or bottom while dragging scrolling
-        3) ctrlY ctrlZ
+        5) some sort of source tree parsing
 
     //TODO Cosmetic
         //console frame
         //menu options (save, load, new, font size)
+
     //TODO Mouse input
         //clickable scrollbar bottom and right when applicable
         //resize on edges
         //drag on top 
-    //TODO CTRLC, CTRLV, CTRLX, CRTLY, CTRLZ
-    //rework the console to be driven by font size and dispay as many lines as will fit
-    //any roundoff padding we can just give to the line number padding or similar
+    
+    //TODO font size
     */
 
     public GameObject consoleCharPrefab;
@@ -33,11 +32,11 @@ public class ConsoleController : MonoBehaviour
     public int spacesPerTab = 4;
     public float heldKeyDelay = .005f;
     public float heldKeyTriggerTime = .4f;
+    public List<string> lines = new List<string>();
 
     RenderTexture renderTexture;
     GameObject[,] chars;
     GameObject cursor;
-    List<string> lines = new List<string>();
     int cursorRow = 0;
     int cursorCol = 0;
     int visibleCursorCol = 0;
@@ -49,12 +48,14 @@ public class ConsoleController : MonoBehaviour
     Vector2Int dragCurrent;
     Dictionary<KeyCode, Action> specialKeyPressHandlers;
 
+    List<Transaction> mutations = new List<Transaction>();
+    int transactionPointer = -1;
+
     bool isHighlighting;
 
     int verticalScroll;
 
     string copyBuffer;
-    //int horizontalScroll;
 
     // Start is called before the first frame update
     void Start()
@@ -65,6 +66,48 @@ public class ConsoleController : MonoBehaviour
         InitKeyHandlers();
         lines.Add("");
         Generate();
+        UpdateConsole();
+    }
+
+    public ConsoleState GetState(){
+        return new ConsoleState.Builder()
+            .setCursorCol(cursorCol)
+            .setCursorRow(cursorRow)
+            .setVisibleCursorCol(visibleCursorCol)
+            .setIsHighlighting(isHighlighting)
+            .setDragStart(dragStart)
+            .setDragCurrent(dragCurrent)
+            .build();
+    }
+
+    public void SetState(ConsoleState consoleState)
+    {
+        this.cursorCol = consoleState.cursorCol;
+        this.cursorRow = consoleState.cursorRow;
+        this.visibleCursorCol = consoleState.visibleCursorCol;
+        this.isHighlighting = consoleState.isHighlighting;
+        this.dragStart = consoleState.dragStart;
+        this.dragCurrent = consoleState.dragCurrent;
+    }
+
+    public void Undo()
+    {
+        if(transactionPointer < 0)
+            return;
+        Transaction previous = mutations[transactionPointer];
+        //Debug.Log("reverting "+previous);
+        previous.Revert(this);
+        transactionPointer--;
+        UpdateConsole();
+    }
+
+    public void Redo()
+    {
+        if(transactionPointer >= mutations.Count - 1)
+            return;
+        Transaction next = mutations[transactionPointer+1];
+        next.Apply(this);
+        transactionPointer++;
         UpdateConsole();
     }
 
@@ -84,6 +127,9 @@ public class ConsoleController : MonoBehaviour
         specialKeyPressHandlers[KeyCode.Y] = OnYKeyPressed;
         specialKeyPressHandlers[KeyCode.Z] = OnZKeyPressed;
         specialKeyPressHandlers[KeyCode.X] = OnXKeyPressed;
+        specialKeyPressHandlers[KeyCode.Delete] = OnDeletePressed;
+        specialKeyPressHandlers[KeyCode.A] = OnAKeyPressed;
+
     }
 
     //first, we will simply make it as many lines as we can hold. Scrolling to be added later
@@ -101,7 +147,7 @@ public class ConsoleController : MonoBehaviour
         cursor.transform.position = new Vector3((trueCursorCol * 3f / 5f) + .05f, viewportHeight - 1 - cursorRow + .5f, -.1f);
     }
 
-    int GetLineCountPadding(){
+    public int GetLineCountPadding(){
         return (lines.Count+"").Length + 2;
     }
 
@@ -211,6 +257,11 @@ public class ConsoleController : MonoBehaviour
 
     public void OnReturnPressed()
     {
+        ApplyTransaction(new NewlineTransaction(GetState()));
+        UpdateConsole();
+    }
+
+    public void NewLine(){
         if(isHighlighting)
             DeleteHighlight();
         string beginningOfLine = lines[cursorRow + verticalScroll].Substring(0,visibleCursorCol);  
@@ -223,14 +274,21 @@ public class ConsoleController : MonoBehaviour
         else
             verticalScroll++;
         visibleCursorCol = cursorCol = 0;
-        UpdateConsole();
+    }
+
+    public void RevertNewLine()
+    {
+        lines[cursorRow + verticalScroll - 1] += lines[cursorRow + verticalScroll];
+        lines.RemoveAt(cursorRow + verticalScroll);
     }
 
     public void OnTabPressed()
     {
-        do{
-            OnKeyPressed(' ');
-        }while(visibleCursorCol % spacesPerTab != 0);
+        int numSpaces = spacesPerTab - (visibleCursorCol % spacesPerTab);
+        string tab = "";
+        for(int i = 0;i<numSpaces;i++)
+            tab += " ";
+        ApplyTransaction(new InsertTransaction(GetState(), tab));
     }
 
     void UpdateLines(){
@@ -294,28 +352,13 @@ public class ConsoleController : MonoBehaviour
 
     public void OnBackspacePressed()
     {
-        if(isHighlighting)
-            DeleteHighlight();
-        else if(cursorCol != 0)
-        {
-            bool canBackspaceTab = CanBackspaceTab();
-            do{
-                SetChar(cursorRow, visibleCursorCol + GetLineCountPadding() - 1, ' ');
-                String line = lines[cursorRow + verticalScroll];
-                lines[cursorRow + verticalScroll] = line.Substring(0,visibleCursorCol - 1) + line.Substring(visibleCursorCol);
-                cursorCol = --visibleCursorCol;
-            }while(canBackspaceTab && visibleCursorCol % spacesPerTab != 0);
-            
-        }else if(cursorRow + verticalScroll != 0){
-            int newCursorCol = lines[cursorRow + verticalScroll - 1].Length;
-            lines[cursorRow + verticalScroll - 1] += lines[cursorRow + verticalScroll];
-            lines.RemoveAt(cursorRow + verticalScroll);
-            if(cursorRow == 0)
-                verticalScroll--;
-            else
-                cursorRow--;
-            visibleCursorCol = cursorCol = newCursorCol;
-        }
+        ApplyTransaction(new DeleteTransaction(GetState(), /*isBackspace = */true));
+        UpdateConsole();
+    }
+
+    public void OnDeletePressed()
+    {
+        ApplyTransaction(new DeleteTransaction(GetState(),/*isBackspace = */false));
         UpdateConsole();
     }
 
@@ -397,6 +440,8 @@ public class ConsoleController : MonoBehaviour
         return (Input.GetKey(KeyCode.LeftControl) || Input.GetKey(KeyCode.RightControl)) ^ (Input.GetKey(KeyCode.LeftShift) || Input.GetKey(KeyCode.RightShift));
     }
 
+    
+
     public void OnCKeyPressed()
     {
         if(Input.GetKey(KeyCode.LeftControl) || Input.GetKey(KeyCode.RightControl))
@@ -414,19 +459,7 @@ public class ConsoleController : MonoBehaviour
     {
         if(Input.GetKey(KeyCode.LeftControl) || Input.GetKey(KeyCode.RightControl))
         {
-            if(isHighlighting)
-                DeleteHighlight();
-            string[] strs = copyBuffer.Split("\n");
-            for(int i = 0;i<strs.Length;i++)
-            {
-                string line = strs[i];
-                foreach(char ch in line){
-                    OnKeyPressed(ch,false);
-                    Debug.Log("(after after) key pressed "+ch+", cursor col: "+cursorCol+" "+visibleCursorCol);
-                }
-                if(i != strs.Length - 1)
-                    OnReturnPressed();
-            }
+            ApplyTransaction(new InsertTransaction(GetState(), copyBuffer));
             UpdateConsole();
         }else{
             if(IsUpperCase())
@@ -438,11 +471,10 @@ public class ConsoleController : MonoBehaviour
 
     public void OnXKeyPressed()
     {
-        if(Input.GetKey(KeyCode.LeftControl) || Input.GetKey(KeyCode.RightControl))
+        if(Input.GetKey(KeyCode.LeftControl) || Input.GetKey(KeyCode.RightControl) && !isHighlighting)
         {
-            Debug.Log("cut");
             copyBuffer = GetHighlightedText();
-            DeleteHighlight();
+            ApplyTransaction(new DeleteTransaction(GetState(), true));
             UpdateConsole();
         }else if(IsUpperCase()){
             OnKeyPressed('X');
@@ -455,7 +487,7 @@ public class ConsoleController : MonoBehaviour
     {
         if(Input.GetKey(KeyCode.LeftControl) || Input.GetKey(KeyCode.RightControl))
         {
-            Debug.Log("redo");
+            Redo();
         }else if(IsUpperCase()){
             OnKeyPressed('Y');
         }else{
@@ -467,30 +499,90 @@ public class ConsoleController : MonoBehaviour
     {
         if(Input.GetKey(KeyCode.LeftControl) || Input.GetKey(KeyCode.RightControl))
         {
-            Debug.Log("undo");
+            Undo();
         }else if(IsUpperCase()){
             OnKeyPressed('Z');
         }else{
             OnKeyPressed('z');
         }
     }
+    
+    public void SelectAll()
+    {
+        isHighlighting = true;
+        dragStart = new Vector2Int(0,0);
+        dragCurrent = new Vector2Int(lines.Count - 1, lines[lines.Count - 1].Length);
+        UpdateHighlight();
+    }
+
+    public void OnAKeyPressed()
+    {
+        if(Input.GetKey(KeyCode.LeftControl) || Input.GetKey(KeyCode.RightControl))
+        {
+            SelectAll();
+        }else if(IsUpperCase()){
+            OnKeyPressed('A');
+        }else{
+            OnKeyPressed('a');
+        }
+    }
+
+
+    public void InsertLines(string[] strs)
+    {
+        if(isHighlighting)
+            DeleteHighlight();
+        for(int i = 0;i<strs.Length;i++)
+        {
+            string line = strs[i];
+            OnKeysTyped(line);
+            if(i != strs.Length - 1)
+                NewLine();
+        }
+    }
+
+    /* precondition, no \n in str */
+    public void OnKeysTyped(string str)
+    {
+        if(isHighlighting)
+            DeleteHighlight();
+        lines[cursorRow + verticalScroll] = lines[cursorRow + verticalScroll].Insert(visibleCursorCol,str);
+        visibleCursorCol += str.Length;
+        cursorCol = visibleCursorCol;
+    }
 
     void OnKeyPressed(char ch){
         OnKeyPressed(ch, true);
     }
 
+    void ApplyTransaction(Transaction t)
+    {
+        string beforeTransaction = String.Join("\n", mutations);
+        if(t.IsMutation())
+        {
+            if(transactionPointer < mutations.Count - 1)
+                mutations.RemoveRange(transactionPointer + 1, mutations.Count - transactionPointer - 1);
+            mutations.Add(t);
+            transactionPointer++;
+        }
+        t.Apply(this);
+        //Debug.Log("before: "+beforeTransaction+"\nafter: "+String.Join("\n", mutations));
+    }
+
     void OnKeyPressed(char ch, bool shouldUpdateConsole)
     {
-        Debug.Log("(before) key pressed "+ch+", cursor col: "+cursorCol+" "+visibleCursorCol);
-        if(isHighlighting)
-            DeleteHighlight();
         if(ch == (char)(0))
             return;
-        lines[cursorRow + verticalScroll] = lines[cursorRow + verticalScroll].Insert(visibleCursorCol,ch+"");
-        cursorCol = ++visibleCursorCol;
-        Debug.Log("(after) key pressed "+ch+", cursor col: "+cursorCol+" "+visibleCursorCol);
+        ApplyTransaction(new InsertTransaction(GetState(), ch+""));
         if(shouldUpdateConsole)
             UpdateConsole();
+    }
+
+    public void DeleteRegion(int r1, int c1, int r2, int c2)
+    {
+        lines[r1] = lines[r1].Substring(0,c1) + lines[r2].Substring(c2+1);
+        for(int r = r2;r>=r1 + 1;r--)
+            lines.RemoveAt(r);
     }
 
     void SetChar(int r, int c, char ch)
@@ -578,6 +670,19 @@ public class ConsoleController : MonoBehaviour
         }
     }
 
+    //precondition, r1 c1 comes before r2 c2
+    string GetRegion(int r1, int c1, int r2, int c2){
+        if(r1 == r2){
+            return lines[r1].Substring(c1, c2 - c1 + 1);
+        }
+        string region = "";
+        region += lines[r1].Substring(c1);
+        for(int i = r1 + 1;i<r2;i++)
+            region += "\n" + lines[i];
+        region += "\n" + lines[r2].Substring(0,c2 + 1);
+        return region;
+    }
+
     string GetHighlightedText(){
         int r1 = dragStart.x;
         int c1 = dragStart.y;
@@ -590,6 +695,8 @@ public class ConsoleController : MonoBehaviour
             r2 = dragStart.x;
             c2 = dragStart.y;
         } 
+        return GetRegion(r1,c1,r2,c2 - 1);
+        /*
         int r = r1;
         int c = c1;
         bool done = false;
@@ -614,7 +721,7 @@ public class ConsoleController : MonoBehaviour
                 highlightedText += "\n";
             }
         }
-        return highlightedText;
+        return highlightedText;*/
     }
 
     void EndHighlight()
@@ -622,8 +729,55 @@ public class ConsoleController : MonoBehaviour
         isHighlighting = false;
     }
 
+    public string CaptureDeletion(bool isBackspace)
+    {
+        string deleted = "";
+        if(isHighlighting)
+        {
+            deleted = GetHighlightedText();
+            DeleteHighlight();
+        }else if(isBackspace)
+        {
+            if(cursorCol != 0)
+            {
+                bool canBackspaceTab = CanBackspaceTab();
+                do{
+                    SetChar(cursorRow, visibleCursorCol + GetLineCountPadding() - 1, ' ');
+                    String line = lines[cursorRow + verticalScroll];
+                    deleted += line[visibleCursorCol - 1];
+                    lines[cursorRow + verticalScroll] = line.Substring(0,visibleCursorCol - 1) + line.Substring(visibleCursorCol);
+                    cursorCol = --visibleCursorCol;
+                }while(canBackspaceTab && visibleCursorCol % spacesPerTab != 0);
+            }else if(cursorRow + verticalScroll != 0){
+                int newCursorCol = lines[cursorRow + verticalScroll - 1].Length;
+                lines[cursorRow + verticalScroll - 1] += lines[cursorRow + verticalScroll];
+                lines.RemoveAt(cursorRow + verticalScroll);
+                if(cursorRow == 0)
+                    verticalScroll--;
+                else
+                    cursorRow--;
+                visibleCursorCol = cursorCol = newCursorCol;
+                deleted += '\n';
+            }
+        }else{
+            if(visibleCursorCol != lines[cursorRow + verticalScroll].Length)
+            {   
+                deleted += lines[cursorRow + verticalScroll][visibleCursorCol];
+                lines[cursorRow + verticalScroll] = lines[cursorRow + verticalScroll].Remove(visibleCursorCol, 1);
+            }else if(cursorRow + verticalScroll < lines.Count - 1){
+                deleted = "\n";
+                lines[cursorRow + verticalScroll] += lines[cursorRow + verticalScroll + 1];
+                lines.RemoveAt(cursorRow + verticalScroll + 1);
+            }
+        }
+        return deleted;
+        UpdateConsole();
+    }
+
     void DeleteHighlight()
     {
+        if(!isHighlighting)
+            return;
         int r1 = dragStart.x;
         int c1 = dragStart.y;
         int r2 = dragCurrent.x;
@@ -635,7 +789,9 @@ public class ConsoleController : MonoBehaviour
             r2 = dragStart.x;
             c2 = dragStart.y;
         } 
-        EndHighlight();
+        DeleteRegion(r1,c1,r2,c2 - 1);
+        isHighlighting = false;
+        /*EndHighlight();
         if(r1 == r2)
             lines[r1] = lines[r1].Substring(0,c1) + lines[r1].Substring(c2);
         else{
@@ -646,9 +802,10 @@ public class ConsoleController : MonoBehaviour
             }
             lines[r1] = lines[r1].Substring(0,c1) + lines[r1+1].Substring(c2);
             lines.RemoveAt(r1+1);
-        }
+        }*/
         cursorRow = r1 - verticalScroll;
         cursorCol = visibleCursorCol = c1;
+        UpdateConsole();
     }
 
     void Highlight(int r, int c)
@@ -669,7 +826,7 @@ public class ConsoleController : MonoBehaviour
         if(scrollInput != 0)
             OnScroll(scrollInput);
 
-        HashSet<char> excluded = new HashSet<char>(){(char)(8), (char)(13),'c','C','v','V','x','X','y','Y','z','Z'};
+        HashSet<char> excluded = new HashSet<char>(){(char)(8), (char)(13),'c','C','v','V','x','X','y','Y','z','Z','a','A'};
         foreach(char ch in Input.inputString)
         {
             if(!excluded.Contains(ch)){
