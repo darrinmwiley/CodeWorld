@@ -7,9 +7,8 @@ using System;
 public class ConsoleController : MonoBehaviour
 {
     /*TODO: 
+        1) if a transaction happens offscreen, set screen position to it either at top or bottom
         2) horizontal scrolling
-        3) mouse wheel scrolling
-        4) mouse near top or bottom while dragging scrolling
         5) some sort of source tree parsing
 
     //TODO Cosmetic
@@ -44,6 +43,7 @@ public class ConsoleController : MonoBehaviour
     float latestDownTime = 0;
     bool isKeyHeld = false;
     float lastHeldKeyTriggerTime = 0;
+    float lastDragScrollTime = 0;
     Vector2Int dragStart;
     Vector2Int dragCurrent;
     Dictionary<KeyCode, Action> specialKeyPressHandlers;
@@ -95,7 +95,6 @@ public class ConsoleController : MonoBehaviour
         if(transactionPointer < 0)
             return;
         Transaction previous = mutations[transactionPointer];
-        //Debug.Log("reverting "+previous);
         previous.Revert(this);
         transactionPointer--;
         UpdateConsole();
@@ -129,7 +128,6 @@ public class ConsoleController : MonoBehaviour
         specialKeyPressHandlers[KeyCode.X] = OnXKeyPressed;
         specialKeyPressHandlers[KeyCode.Delete] = OnDeletePressed;
         specialKeyPressHandlers[KeyCode.A] = OnAKeyPressed;
-
     }
 
     //first, we will simply make it as many lines as we can hold. Scrolling to be added later
@@ -364,8 +362,7 @@ public class ConsoleController : MonoBehaviour
 
     public void OnUpArrowPressed()
     {
-        if(isHighlighting)
-            EndHighlight();
+        isHighlighting = false;
         if(cursorRow == 0)
         {
             if(verticalScroll != 0)
@@ -381,8 +378,7 @@ public class ConsoleController : MonoBehaviour
 
     public void OnDownArrowPressed()
     {
-        if(isHighlighting)
-            EndHighlight();
+        isHighlighting = false;
         if(cursorRow + verticalScroll >= lines.Count - 1)
             return;
         if(cursorRow != viewportHeight - 2)
@@ -397,10 +393,26 @@ public class ConsoleController : MonoBehaviour
         UpdateConsole();
     }
 
+    public void MaybeDownScroll()
+    {
+        if(verticalScroll >= lines.Count - 1) return;
+        verticalScroll++;
+        cursorRow--;
+        UpdateConsole();
+    }
+
+    public void MaybeUpScroll()
+    {
+        if(verticalScroll != 0){
+            verticalScroll--;
+            cursorRow++;
+        }
+        UpdateConsole();
+    }
+
     public void OnLeftArrowPressed()
     {
-        if(isHighlighting)
-            EndHighlight();
+        isHighlighting = false;
         if(visibleCursorCol != 0)
             visibleCursorCol--;
         else if(cursorRow + verticalScroll != 0)
@@ -417,8 +429,7 @@ public class ConsoleController : MonoBehaviour
 
     public void OnRightArrowPressed()
     {
-        if(isHighlighting)
-            EndHighlight();
+        isHighlighting = false;
         if(visibleCursorCol != lines[cursorRow + verticalScroll].Length)
             visibleCursorCol++;
         else {
@@ -469,13 +480,17 @@ public class ConsoleController : MonoBehaviour
         }
     }
 
+    //todo, if no highlight, this shouldn't delete anything
     public void OnXKeyPressed()
     {
-        if(Input.GetKey(KeyCode.LeftControl) || Input.GetKey(KeyCode.RightControl) && !isHighlighting)
+        if(Input.GetKey(KeyCode.LeftControl) || Input.GetKey(KeyCode.RightControl))
         {
-            copyBuffer = GetHighlightedText();
-            ApplyTransaction(new DeleteTransaction(GetState(), true));
-            UpdateConsole();
+            if(isHighlighting){
+                copyBuffer = GetHighlightedText();
+                ApplyTransaction(new DeleteTransaction(GetState(), true));
+                UpdateConsole();
+            }
+            isHighlighting = false;
         }else if(IsUpperCase()){
             OnKeyPressed('X');
         }else{
@@ -566,7 +581,6 @@ public class ConsoleController : MonoBehaviour
             transactionPointer++;
         }
         t.Apply(this);
-        //Debug.Log("before: "+beforeTransaction+"\nafter: "+String.Join("\n", mutations));
     }
 
     void OnKeyPressed(char ch, bool shouldUpdateConsole)
@@ -623,6 +637,23 @@ public class ConsoleController : MonoBehaviour
         cursorRow = cursorLocation.x;
         visibleCursorCol = cursorCol = cursorLocation.y;
         UpdateConsole();
+    }
+
+    //TODO: convert this to LPS (lines per second), and use this to recalculate verticalScroll?
+    float GetTimeBetweenDragScroll()
+    {
+        float minDelay = 0;
+        float maxDelay = .2f;
+        float sensitivity = 1f;
+        float upTrigger = .95f;
+        float downTrigger = .05f;
+        if(mouseListener.currentMousePosition.y > upTrigger)
+        {
+            return Mathf.Max(minDelay, maxDelay - (mouseListener.currentMousePosition.y - upTrigger) * sensitivity);
+        }else if(mouseListener.currentMousePosition.y < downTrigger){
+            return Mathf.Max(minDelay, maxDelay - (downTrigger - mouseListener.currentMousePosition.y) * sensitivity);
+        }
+        return 1f;
     }
 
     void OnMouseDrag(MouseListener mouseListener)
@@ -724,11 +755,6 @@ public class ConsoleController : MonoBehaviour
         return highlightedText;*/
     }
 
-    void EndHighlight()
-    {
-        isHighlighting = false;
-    }
-
     public string CaptureDeletion(bool isBackspace)
     {
         string deleted = "";
@@ -822,9 +848,28 @@ public class ConsoleController : MonoBehaviour
 
     void Update()
     {
+        if(mouseListener.isMouseDragging && mouseListener.currentMousePosition.y > 1 && Time.time > lastDragScrollTime + GetTimeBetweenDragScroll())
+        {
+            MaybeUpScroll();
+            Vector2Int cursorLocation = GetCursorLocationForMouse();
+            dragCurrent = new Vector2Int(cursorLocation.x + verticalScroll, cursorLocation.y);
+            Debug.Log(dragCurrent);
+            lastDragScrollTime = Time.time;
+        }
+        if(mouseListener.isMouseDragging && mouseListener.currentMousePosition.y < 0 && Time.time > lastDragScrollTime + GetTimeBetweenDragScroll())
+        {
+            MaybeDownScroll();
+            lastDragScrollTime = Time.time;
+        }
         float scrollInput = Input.GetAxis("Mouse ScrollWheel");
-        if(scrollInput != 0)
-            OnScroll(scrollInput);
+        if(scrollInput != 0){
+            if(scrollInput > 0)
+            {
+                MaybeUpScroll();
+            }else{
+                MaybeDownScroll();
+            }
+        }
 
         HashSet<char> excluded = new HashSet<char>(){(char)(8), (char)(13),'c','C','v','V','x','X','y','Y','z','Z','a','A'};
         foreach(char ch in Input.inputString)
