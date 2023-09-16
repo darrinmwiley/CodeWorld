@@ -9,13 +9,12 @@ public class NewlineTransaction : Transaction
     ConsoleState preState;
     ConsoleState postState;
 
-    public NewlineTransaction(ConsoleState preState)
-    {
-        this.preState = preState;
-    }
-
     public void Apply(ConsoleController console)
     {
+        if(preState == null)
+            preState = console.GetState();
+        else
+            console.SetState(preState);
         console.SetState(preState);
         console.NewLine();
         postState = console.GetState();

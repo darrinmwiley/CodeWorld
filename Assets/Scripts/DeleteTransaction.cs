@@ -11,24 +11,24 @@ public class DeleteTransaction : Transaction
     ConsoleState postState;
     public bool isBackspace;
 
-    public DeleteTransaction(ConsoleState preState, bool isBackspace)
+    public DeleteTransaction(bool isBackspace)
     {
-        this.preState = preState;
         this.isBackspace = isBackspace;
     }
 
     public void Apply(ConsoleController console)
     {
-        console.SetState(preState);
+        if(preState == null)
+            preState = console.GetState();
+        else
+            console.SetState(preState);
         string deleted = console.CaptureDeletion(isBackspace);
         this.deletion = deleted.Split("\n");
         this.postState = console.GetState();
-        Debug.Log(this);
     }
 
     public void Revert(ConsoleController console)
     {
-        Debug.Log("reverting: "+this);
         console.SetState(postState);
         console.InsertLines(this.deletion);
     }
