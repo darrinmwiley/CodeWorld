@@ -6,14 +6,7 @@ using System;
 
 public class ConsoleController : MonoBehaviour
 {
-    /*TODO: 
-        0) absolute cursor position as source of truth (will probs be helpful in horz scrolling as well)
-        1) figure out best place to decide to rubber band back to cursor position
-            before and after every transaction?
-            maybe it would be better to not pass the state, it's public anyways so just let the transaction grab it
-            then we coudl put that in applyTransaction
-        2) horizontal scrolling
-        3) CTRL+ENTER presses enter twice
+
 
     //TODO Cosmetic
         //console frame
@@ -23,7 +16,8 @@ public class ConsoleController : MonoBehaviour
         //drag on top   
         //font size
         //source tree parsing
-    */
+        //automatic horizontal scroll on mouse drag.
+    
 
     public GameObject consoleCharPrefab;
     public GameObject cursorPrefab;
@@ -56,6 +50,7 @@ public class ConsoleController : MonoBehaviour
     public bool isHighlighting;
 
     int verticalScroll;
+    int horizontalScroll;
 
     string copyBuffer;
 
@@ -99,7 +94,7 @@ public class ConsoleController : MonoBehaviour
         Transaction previous = mutations[transactionPointer];
         previous.Revert(this);
         transactionPointer--;
-        AdjustVerticalScrollToCursor();
+        AdjustScrollToCursor();
         UpdateConsole();
     }
 
@@ -111,8 +106,8 @@ public class ConsoleController : MonoBehaviour
         next.Apply(this);
         transactionPointer++;
         UpdateConsole();
-        AdjustVerticalScrollToCursor();
-        AdjustVerticalScrollToCursor();
+        AdjustScrollToCursor();
+        AdjustScrollToCursor();
     }
 
     void InitKeyHandlers(){
@@ -142,11 +137,12 @@ public class ConsoleController : MonoBehaviour
         UpdateLines();
         if(isHighlighting)
             UpdateHighlight();
+        string code = String.Join("\n", lines);
     }
 
     void UpdateCursor()
     {
-        int trueCursorCol = visibleCursorCol + GetLineCountPadding();
+        int trueCursorCol = visibleCursorCol + GetLineCountPadding() - horizontalScroll;
         cursor.transform.position = new Vector3((trueCursorCol * 3f / 5f) + .05f, verticalScroll + viewportHeight - 1 - cursorRow + .5f, -.1f);
     }
 
@@ -260,7 +256,7 @@ public class ConsoleController : MonoBehaviour
 
     public void OnReturnPressed()
     {
-        AdjustVerticalScrollToCursor();
+        AdjustScrollToCursor();
         ApplyTransaction(new NewlineTransaction());
         UpdateConsole();
     }
@@ -268,11 +264,11 @@ public class ConsoleController : MonoBehaviour
     public void NewLine(){
         if(isHighlighting)
             DeleteHighlight();
-        lines[cursorRow] = lines[cursorRow].Substring(0,visibleCursorCol);
         lines.Insert(cursorRow + 1, lines[cursorRow].Substring(visibleCursorCol));
+        lines[cursorRow] = lines[cursorRow].Substring(0,visibleCursorCol);
         cursorRow++;
         visibleCursorCol = cursorCol = 0;
-        AdjustVerticalScrollToCursor();
+        AdjustScrollToCursor();
     }
 
     public void RevertNewLine()
@@ -287,19 +283,51 @@ public class ConsoleController : MonoBehaviour
         string tab = "";
         for(int i = 0;i<numSpaces;i++)
             tab += " ";
-        AdjustVerticalScrollToCursor();
+        AdjustScrollToCursor();
         ApplyTransaction(new InsertTransaction(tab));
     }
 
     void UpdateLines(){
+        List<Vector3Int> keywordLocations = SyntaxHighlighter.GetKeywordLocations(String.Join("\n", lines));
+        List<Vector3Int> stringLocations = SyntaxHighlighter.GetStringLocations(String.Join("\n", lines));
+        List<Vector3Int> commentLocations = SyntaxHighlighter.GetCommentLocations(String.Join("\n", lines));
         int padding = GetLineCountPadding();
         for(int i = 0;i<viewportHeight;i++){
             for(int j = padding;j<viewportWidth;j++){
                 SetCellColor(i,j,Color.black);
                 SetCellTextColor(i,j,Color.white);
                 int lineNumber = i + verticalScroll;
-                if(lines.Count > lineNumber && lines[lineNumber].Length > j - padding){
-                    SetChar(i,j,lines[lineNumber][j - padding]);
+                if(lines.Count > lineNumber && lines[lineNumber].Length > j - padding + horizontalScroll){
+                    //TODO make more efficient
+                    int c = j - padding + horizontalScroll;
+                    //blue
+                    foreach(Vector3Int keyword in keywordLocations)
+                    {
+                        Debug.Log(keyword+" "+lineNumber+" "+c);
+                        if(keyword.x - 1 == lineNumber && keyword.y <= c && keyword.z >= c)
+                        {
+                            SetCellTextColor(i,j,new Color(86 / 256f,156 / 256f,214 / 256f));
+                        }
+                    }
+                    //orange
+                    foreach(Vector3Int keyword in stringLocations)
+                    {
+                        Debug.Log(keyword+" "+lineNumber+" "+c);
+                        if(keyword.x - 1 == lineNumber && keyword.y <= c && keyword.z >= c)
+                        {
+                            SetCellTextColor(i,j,new Color(206 / 256f,132 / 256f,77 / 256f));
+                        }
+                    }
+                    //green
+                    foreach(Vector3Int keyword in commentLocations)
+                    {
+                        Debug.Log(keyword+" "+lineNumber+" "+c);
+                        if(keyword.x - 1 == lineNumber && keyword.y <= c && keyword.z >= c)
+                        {
+                            SetCellTextColor(i,j,new Color(106 / 256f,153 / 256f,85 / 256f));
+                        }
+                    }
+                    SetChar(i,j,lines[lineNumber][j - padding + horizontalScroll]);
                 }else{
                     SetChar(i,j,' ');
                 }
@@ -369,7 +397,7 @@ public class ConsoleController : MonoBehaviour
             return;
         cursorRow--;
         visibleCursorCol = Mathf.Min(cursorCol, lines[cursorRow].Length);
-        AdjustVerticalScrollToCursor();
+        AdjustScrollToCursor();
         UpdateConsole();
     }
 
@@ -380,7 +408,7 @@ public class ConsoleController : MonoBehaviour
             return;
         cursorRow++;
         visibleCursorCol = Mathf.Min(cursorCol, lines[cursorRow].Length);
-        AdjustVerticalScrollToCursor();
+        AdjustScrollToCursor();
         UpdateConsole();
     }
 
@@ -409,7 +437,7 @@ public class ConsoleController : MonoBehaviour
             visibleCursorCol = lines[cursorRow].Length;
         }
         cursorCol = visibleCursorCol;
-        AdjustVerticalScrollToCursor();
+        AdjustScrollToCursor();
         UpdateConsole();
     }
 
@@ -426,7 +454,7 @@ public class ConsoleController : MonoBehaviour
             }
         }
         cursorCol = visibleCursorCol;
-        AdjustVerticalScrollToCursor();
+        AdjustScrollToCursor();
         UpdateConsole();
     }
 
@@ -434,8 +462,6 @@ public class ConsoleController : MonoBehaviour
     {
         return (Input.GetKey(KeyCode.LeftControl) || Input.GetKey(KeyCode.RightControl)) ^ (Input.GetKey(KeyCode.LeftShift) || Input.GetKey(KeyCode.RightShift));
     }
-
-    
 
     public void OnCKeyPressed()
     {
@@ -454,7 +480,7 @@ public class ConsoleController : MonoBehaviour
     {
         if(Input.GetKey(KeyCode.LeftControl) || Input.GetKey(KeyCode.RightControl))
         {
-            AdjustVerticalScrollToCursor();
+            AdjustScrollToCursor();
             ApplyTransaction(new InsertTransaction(copyBuffer));
             UpdateConsole();
         }else{
@@ -472,7 +498,7 @@ public class ConsoleController : MonoBehaviour
         {
             if(isHighlighting){
                 copyBuffer = GetHighlightedText();
-                AdjustVerticalScrollToCursor();
+                AdjustScrollToCursor();
                 ApplyTransaction(new DeleteTransaction(true));
                 UpdateConsole();
             }
@@ -558,7 +584,7 @@ public class ConsoleController : MonoBehaviour
 
     void ApplyTransaction(Transaction t)
     {
-        AdjustVerticalScrollToCursor();
+        AdjustScrollToCursor();
         string beforeTransaction = String.Join("\n", mutations);
         if(t.IsMutation())
         {
@@ -568,9 +594,10 @@ public class ConsoleController : MonoBehaviour
             transactionPointer++;
         }
         t.Apply(this);
+        AdjustScrollToCursor();
     }
 
-    public void AdjustVerticalScrollToCursor()
+    public void AdjustScrollToCursor()
     {
         if(verticalScroll + viewportHeight - 1 < cursorRow)
         {
@@ -580,13 +607,21 @@ public class ConsoleController : MonoBehaviour
         {
             verticalScroll = cursorRow;
         }
+        if(horizontalScroll + viewportWidth - 1 - GetLineCountPadding()< visibleCursorCol)
+        {
+            horizontalScroll = visibleCursorCol - viewportWidth + 1 + GetLineCountPadding();
+        }
+        if(horizontalScroll > visibleCursorCol - 4)
+        {
+            horizontalScroll = Mathf.Max(0,visibleCursorCol - 4);
+        }
     }
 
     void OnKeyPressed(char ch, bool shouldUpdateConsole)
     {
         if(ch == (char)(0))
             return;
-        AdjustVerticalScrollToCursor();
+        AdjustScrollToCursor();
         ApplyTransaction(new InsertTransaction(ch+""));
         if(shouldUpdateConsole)
             UpdateConsole();
@@ -631,10 +666,10 @@ public class ConsoleController : MonoBehaviour
     void OnMouseDown(MouseListener mouseListener)
     {
         Vector2Int cursorLocation = GetCursorLocationForMouse();
-        dragStart = new Vector2Int(cursorLocation.x + verticalScroll, cursorLocation.y);
-        dragCurrent = new Vector2Int(cursorLocation.x + verticalScroll, cursorLocation.y);
+        dragStart = new Vector2Int(cursorLocation.x + verticalScroll, cursorLocation.y + horizontalScroll);
+        dragCurrent = new Vector2Int(cursorLocation.x + verticalScroll, cursorLocation.y + horizontalScroll);
         cursorRow = cursorLocation.x + verticalScroll;
-        visibleCursorCol = cursorCol = cursorLocation.y;
+        visibleCursorCol = cursorCol = cursorLocation.y + horizontalScroll;
         UpdateConsole();
     }
 
@@ -658,7 +693,7 @@ public class ConsoleController : MonoBehaviour
     void OnMouseDrag(MouseListener mouseListener)
     {
         Vector2Int cursorLocation = GetCursorLocationForMouse();
-        dragCurrent = new Vector2Int(cursorLocation.x + verticalScroll, cursorLocation.y);
+        dragCurrent = new Vector2Int(cursorLocation.x + verticalScroll, cursorLocation.y + horizontalScroll);
         if(dragCurrent.x != dragStart.x || dragCurrent.y != dragStart.y)
             isHighlighting = true;
         UpdateConsole();
@@ -682,10 +717,13 @@ public class ConsoleController : MonoBehaviour
         bool done = false;
         while(!done && (r != r2 || c != c2))
         {
-            if(c <= lines[r].Length){
+            if(r > r2)
+                break;
+            if(r < lines.Count && c <= lines[r].Length){
                 int viewportR = r - verticalScroll;
-                if(viewportR >= 0 && viewportR < viewportHeight)
-                    Highlight(viewportR, c + GetLineCountPadding());
+                int viewportC = c - horizontalScroll + GetLineCountPadding();
+                if(viewportR >= 0 && viewportR < viewportHeight && viewportC >= GetLineCountPadding() && viewportC < viewportWidth)
+                    Highlight(viewportR, viewportC);
             }  
             if(c <= lines[r].Length - 1){
                 c++;
@@ -767,7 +805,6 @@ public class ConsoleController : MonoBehaviour
             {
                 bool canBackspaceTab = CanBackspaceTab();
                 do{
-                    SetChar(cursorRow - verticalScroll, visibleCursorCol + GetLineCountPadding() - 1, ' ');
                     String line = lines[cursorRow];
                     deleted += line[visibleCursorCol - 1];
                     lines[cursorRow] = line.Substring(0,visibleCursorCol - 1) + line.Substring(visibleCursorCol);
@@ -792,7 +829,7 @@ public class ConsoleController : MonoBehaviour
                 lines.RemoveAt(cursorRow + 1);
             }
         }
-        AdjustVerticalScrollToCursor();
+        AdjustScrollToCursor();
         UpdateConsole();
         return deleted;
     }
