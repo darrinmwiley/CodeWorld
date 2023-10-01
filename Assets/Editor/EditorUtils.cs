@@ -5,8 +5,6 @@ public class EditorUtils : EditorWindow
 {
     private delegate void CustomAction();
 
-    private SimpleObject simpleObject;
-
     private struct Button
     {
         public CustomAction Function;
@@ -51,17 +49,17 @@ public class EditorUtils : EditorWindow
     public void MakeObj()
     {
         GameObject gameObj = new GameObject("simple object");
-        simpleObject = gameObj.AddComponent<SimpleObject>();
+        //simpleObject = gameObj.AddComponent<SimpleObject>();
     }
 
     public void Cube()
     {
-        simpleObject.SetShape(ShapeType.CUBE);
+        //simpleObject.SetShape(ShapeType.CUBE);
     }
 
     public void Sphere()
     {
-        simpleObject.SetShape(ShapeType.SPHERE);
+        //simpleObject.SetShape(ShapeType.SPHERE);
     }
 
     private void InitializeButtons()
