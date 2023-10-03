@@ -28,6 +28,8 @@ public class ConsoleController : MonoBehaviour
     public float heldKeyDelay = .005f;
     public float heldKeyTriggerTime = .4f;
     public List<string> lines = new List<string>();
+    public List<GameObject> rawImageHolders;
+    
 
     RenderTexture renderTexture;
     GameObject[,] chars;
@@ -173,6 +175,7 @@ public class ConsoleController : MonoBehaviour
         GameObject charsGO = charsTransform == null ? new GameObject("chars") : charsTransform.gameObject;
         Transform cameraTransform = gameObject.transform.Find("camera");
         GameObject cameraGO = cameraTransform == null ? new GameObject("camera") : cameraTransform.gameObject;
+        //TODO set camera to only culling mask "RenderTexture" layer
         charsGO.transform.parent = gameObject.transform;
         cameraGO.transform.parent = gameObject.transform;
         for (int i = transform.Find("chars").childCount - 1; i >= 0; i--)
@@ -182,7 +185,6 @@ public class ConsoleController : MonoBehaviour
         }
 
         chars = new GameObject[viewportHeight, viewportWidth];
-
         for(int i = 0;i<viewportWidth;i++)
         {
             for(int j = 0;j<viewportHeight;j++)
@@ -202,19 +204,17 @@ public class ConsoleController : MonoBehaviour
         if(camera == null)
             camera = cameraGO.AddComponent<Camera>();
         SetCamera(camera, bounds.min.x, bounds.max.y, bounds.max.x, bounds.min.y);
-
         int textureWidth = 1000;
-
         RenderTexture renderTexture = CreateRenderTexture(camera, textureWidth);
-
-        //QUICKCODE SKETCH
-        Transform UiTransform = transform.parent;
-        Transform canvasTransform = UiTransform.Find("Canvas");
-        RawImage rawImage = canvasTransform.Find("RawImage").GetComponent<RawImage>();
-        rawImage.texture = renderTexture;
-        float height = textureWidth * ((renderTexture.height + 0f) / renderTexture.width);
-        RectTransform rectTransform = rawImage.rectTransform;
-        rectTransform.sizeDelta = new Vector2(textureWidth, height);
+        //QUICKCODE SKETCH 
+        foreach(GameObject holder in rawImageHolders){
+            //need to look up rawimage parent for canvas to get proper transform TODO
+            RectTransform canvasRectTransform = holder.transform.parent.gameObject.GetComponent<RectTransform>();
+            RawImage rawImage = holder.GetComponent<RawImage>();
+            rawImage.texture = renderTexture;
+            RectTransform rectTransform = rawImage.rectTransform;
+            rectTransform.sizeDelta = canvasRectTransform.sizeDelta;
+        }
     }
 
     public Bounds GetBounds()

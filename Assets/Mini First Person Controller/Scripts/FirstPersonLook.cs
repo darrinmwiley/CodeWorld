@@ -10,6 +10,10 @@ public class FirstPersonLook : MonoBehaviour
     Vector2 velocity;
     Vector2 frameVelocity;
 
+    public float raycastDistance = 10f; // Adjust this value for the raycast distance.
+
+    private GameObject currentlyLookedAtObject;
+
 
     void Reset()
     {
@@ -35,5 +39,53 @@ public class FirstPersonLook : MonoBehaviour
         // Rotate camera up-down and controller left-right from velocity.
         transform.localRotation = Quaternion.AngleAxis(-velocity.y, Vector3.right);
         character.localRotation = Quaternion.AngleAxis(velocity.x, Vector3.up);
+
+        // Raycast to detect the object being looked at.
+        RaycastHit hit;
+        if (Physics.Raycast(transform.position, transform.forward, out hit, raycastDistance))
+        {
+            GameObject hitObject = hit.collider.gameObject;
+
+            // Check if the object being looked at has changed.
+            if (hitObject != currentlyLookedAtObject)
+            {
+                // Call a method on the new object being looked at (if it has one).
+                OnLook(hitObject);
+                
+                // Update the currently looked at object.
+                currentlyLookedAtObject = hitObject;
+            }
+        }
+        else
+        {
+            OnLook(null);
+        }
+    }
+
+    private void OnLook(GameObject obj)
+    {
+        if (obj != null)
+        {
+            // Check if the object has an "Outline" script attached.
+            Outline outline = obj.GetComponent<Outline>();
+            if (outline != null)
+            {
+                // Activate or deactivate the outline based on the 'activateOutline' parameter.
+                outline.enabled = true;
+            }
+        }
+        if(currentlyLookedAtObject != null)
+        {
+            // Check if the object has an "Outline" script attached.
+            Outline old = currentlyLookedAtObject.GetComponent<Outline>();
+            if (old != null)
+            {
+                // Activate or deactivate the outline based on the 'activateOutline' parameter.
+                old.enabled = false;
+            }
+            currentlyLookedAtObject = null;
+        }else{
+            currentlyLookedAtObject = null;
+        }
     }
 }
