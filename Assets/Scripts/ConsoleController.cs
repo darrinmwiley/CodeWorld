@@ -56,6 +56,8 @@ public class ConsoleController : MonoBehaviour
 
     string copyBuffer;
 
+    public bool isFocused;
+
     // Start is called before the first frame update
     void Start()
     {
@@ -651,7 +653,7 @@ public class ConsoleController : MonoBehaviour
         cell.GetComponent<ConsoleCharController>().UpdateTextColor(color);
     }
 
-    void OnMouseUp(MouseListener mouseListener)
+    void OnMouseUp()
     {
         Vector2Int cursorLocation = GetCursorLocationForMouse();
     }
@@ -663,7 +665,7 @@ public class ConsoleController : MonoBehaviour
         return new Vector2Int(r, c);
     }
 
-    void OnMouseDown(MouseListener mouseListener)
+    void OnMouseDown()
     {
         Vector2Int cursorLocation = GetCursorLocationForMouse();
         dragStart = new Vector2Int(cursorLocation.x + verticalScroll, cursorLocation.y + horizontalScroll);
@@ -690,7 +692,7 @@ public class ConsoleController : MonoBehaviour
         return 1f;
     }
 
-    void OnMouseDrag(MouseListener mouseListener)
+    void OnMouseDrag()
     {
         Vector2Int cursorLocation = GetCursorLocationForMouse();
         dragCurrent = new Vector2Int(cursorLocation.x + verticalScroll, cursorLocation.y + horizontalScroll);
@@ -882,6 +884,8 @@ public class ConsoleController : MonoBehaviour
 
     void Update()
     {
+        if(!isFocused)
+            return;
         if(mouseListener.isMouseDragging && mouseListener.currentMousePosition.y > 1 && Time.time > lastDragScrollTime + GetTimeBetweenDragScroll())
         {
             MaybeUpScroll();

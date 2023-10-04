@@ -1,4 +1,5 @@
-﻿using UnityEngine;
+﻿using System.Collections.Generic;
+using UnityEngine;
 
 public class FirstPersonLook : MonoBehaviour
 {
@@ -9,10 +10,13 @@ public class FirstPersonLook : MonoBehaviour
 
     Vector2 velocity;
     Vector2 frameVelocity;
+    private HashSet<GameObject> lookingAtObjects = new HashSet<GameObject>();
 
     public float raycastDistance = 10f; // Adjust this value for the raycast distance.
 
     private GameObject currentlyLookedAtObject;
+
+    //add a set of things you're looking at
 
 
     void Reset()
@@ -40,52 +44,43 @@ public class FirstPersonLook : MonoBehaviour
         transform.localRotation = Quaternion.AngleAxis(-velocity.y, Vector3.right);
         character.localRotation = Quaternion.AngleAxis(velocity.x, Vector3.up);
 
-        // Raycast to detect the object being looked at.
-        RaycastHit hit;
-        if (Physics.Raycast(transform.position, transform.forward, out hit, raycastDistance))
+         // Raycast to detect objects being looked at.
+        RaycastHit[] hits = Physics.RaycastAll(transform.position, transform.forward, raycastDistance);
+        
+        // Create a set to track newly looked at objects.
+        HashSet<GameObject> newLookingAtObjects = new HashSet<GameObject>();
+
+        foreach (RaycastHit hit in hits)
         {
             GameObject hitObject = hit.collider.gameObject;
+            // Check if the object being looked at has a LookListener component.
+            LookListener lookListener = hitObject.GetComponent<LookListener>();
+            if (lookListener != null)
+            {
+                if(!lookingAtObjects.Contains(hitObject))
+                {
+                    // Call a method on the object being looked at (if it has one).
+                    lookListener.OnLook();
+                }
 
-            // Check if the object being looked at has changed.
-            if (hitObject != currentlyLookedAtObject)
-            {
-                // Call a method on the new object being looked at (if it has one).
-                OnLook(hitObject);
-                
-                // Update the currently looked at object.
-                currentlyLookedAtObject = hitObject;
+                newLookingAtObjects.Add(hitObject);
             }
         }
-        else
-        {
-            OnLook(null);
-        }
-    }
 
-    private void OnLook(GameObject obj)
-    {
-        if (obj != null)
+        // Find objects that are no longer being looked at and call OnLookAway.
+        foreach (GameObject oldObject in lookingAtObjects)
         {
-            // Check if the object has an "Outline" script attached.
-            Outline outline = obj.GetComponent<Outline>();
-            if (outline != null)
+            if (!newLookingAtObjects.Contains(oldObject))
             {
-                // Activate or deactivate the outline based on the 'activateOutline' parameter.
-                outline.enabled = true;
+                LookListener lookListener = oldObject.GetComponent<LookListener>();
+                if (lookListener != null)
+                {
+                    lookListener.OnLookAway();
+                }
             }
         }
-        if(currentlyLookedAtObject != null)
-        {
-            // Check if the object has an "Outline" script attached.
-            Outline old = currentlyLookedAtObject.GetComponent<Outline>();
-            if (old != null)
-            {
-                // Activate or deactivate the outline based on the 'activateOutline' parameter.
-                old.enabled = false;
-            }
-            currentlyLookedAtObject = null;
-        }else{
-            currentlyLookedAtObject = null;
-        }
+        
+        // Update the currently looked at objects.
+        lookingAtObjects = newLookingAtObjects;
     }
 }

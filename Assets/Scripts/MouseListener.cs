@@ -13,7 +13,7 @@ public class MouseListener : MonoBehaviour, IPointerDownHandler, IPointerUpHandl
     List<MouseAction> mouseUpHandlers = new List<MouseAction>(){};
     List<MouseAction> mouseDragHandlers = new List<MouseAction>(){};
 
-    public delegate void MouseAction(MouseListener mouseListener);
+    public delegate void MouseAction();
 
     public void AddMouseDownHandler(MouseAction mouseAction)
     {
@@ -37,17 +37,18 @@ public class MouseListener : MonoBehaviour, IPointerDownHandler, IPointerUpHandl
         CalculateProportions(eventData.position);
         mouseDownPosition = currentMousePosition;
         foreach(MouseAction mouseAction in mouseDownHandlers){
-            mouseAction(this);
+            mouseAction();
         }
     }
 
     public void OnPointerUp(PointerEventData eventData)
     {
+        Debug.Log("pointer up");
         isMouseDown = false;
         isMouseDragging = false;
         CalculateProportions(eventData.position);
         foreach(MouseAction mouseAction in mouseUpHandlers){
-            mouseAction(this);
+            mouseAction();
         }
     }
 
@@ -59,7 +60,7 @@ public class MouseListener : MonoBehaviour, IPointerDownHandler, IPointerUpHandl
             CalculateProportions(eventData.position);
             foreach (MouseAction mouseAction in mouseDragHandlers)
             {
-                mouseAction(this);
+                mouseAction();
             }
         }
     }

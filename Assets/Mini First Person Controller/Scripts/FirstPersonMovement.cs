@@ -14,8 +14,7 @@ public class FirstPersonMovement : MonoBehaviour
     Rigidbody rigidbody;
     /// <summary> Functions to override movement speed. Will use the last added override. </summary>
     public List<System.Func<float>> speedOverrides = new List<System.Func<float>>();
-
-
+    public bool movementLocked = false;
 
     void Awake()
     {
@@ -25,6 +24,8 @@ public class FirstPersonMovement : MonoBehaviour
 
     void FixedUpdate()
     {
+        if(movementLocked)
+            return;
         // Update IsRunning from input.
         IsRunning = canRun && Input.GetKey(runningKey);
 
