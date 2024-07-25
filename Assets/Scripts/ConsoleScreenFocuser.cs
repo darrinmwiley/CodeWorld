@@ -20,17 +20,14 @@ public class ConsoleScreenFocuser : MonoBehaviour
     }
 
     public void OnLook(){
-        Debug.Log("on look");
         lookingAtScreen = true;
     }
 
     public void OnLookAway(){
-        Debug.Log("on look away");
         lookingAtScreen = false;
     }
 
     public void OnClick(){
-        Debug.Log("on click");
         if(lookingAtScreen)
         {
             focused = true;

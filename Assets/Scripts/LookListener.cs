@@ -10,6 +10,7 @@ public class LookListener : MonoBehaviour
     public delegate void LookAction();
 
     public void OnLook(){
+        Debug.Log("on look");
         foreach(LookAction lookAction in onLookHandlers){
             lookAction();
         }

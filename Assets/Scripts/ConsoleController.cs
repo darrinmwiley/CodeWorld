@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
 using System;
+using System.IO;
 
 public class ConsoleController : MonoBehaviour
 {
@@ -21,7 +22,7 @@ public class ConsoleController : MonoBehaviour
 
     public GameObject consoleCharPrefab;
     public GameObject cursorPrefab;
-    public MouseListener mouseListener;
+    public LegacyMouseListener mouseListener;
     public int viewportWidth = 80;
     public int viewportHeight = 24;
     public int spacesPerTab = 4;
@@ -67,6 +68,60 @@ public class ConsoleController : MonoBehaviour
         InitKeyHandlers();
         lines.Add("");
         Generate();
+        UpdateConsole();
+    }
+
+    public void Save(string fileName)
+    {
+        try
+        {
+            // Combine the persistent data path with the file name
+            string filePath = Path.Combine(Application.persistentDataPath, fileName);
+
+            // Create a StreamWriter to write to the file
+            using (StreamWriter writer = new StreamWriter(filePath))
+            {
+                // Write each line from the string array to the file
+                foreach (string line in lines)
+                {
+                    writer.WriteLine(line);
+                }
+            }
+
+            Debug.Log("File saved successfully: " + filePath);
+        }
+        catch (Exception e)
+        {
+            Debug.LogError("Error saving file: " + e.Message);
+        }
+    }
+
+    public void Load(string relativeFilePath)
+    {
+        lines = new List<string>();
+
+        try
+        {
+            // Combine the persistent data path with the relative file path
+            string filePath = Path.Combine(Application.persistentDataPath, relativeFilePath);
+
+            // Check if the file exists
+            if (File.Exists(filePath))
+            {
+                // Read all lines from the file and add them to the List
+                string[] fileLines = File.ReadAllLines(filePath);
+                lines.AddRange(fileLines);
+            }
+            else
+            {
+                Debug.LogWarning("File not found: " + filePath);
+            }
+        }
+        catch (Exception e)
+        {
+            Debug.LogError("Error loading file: " + e.Message);
+        }
+
         UpdateConsole();
     }
 
@@ -132,6 +187,8 @@ public class ConsoleController : MonoBehaviour
         specialKeyPressHandlers[KeyCode.X] = OnXKeyPressed;
         specialKeyPressHandlers[KeyCode.Delete] = OnDeletePressed;
         specialKeyPressHandlers[KeyCode.A] = OnAKeyPressed;
+        specialKeyPressHandlers[KeyCode.S] = OnSKeyPressed;
+        specialKeyPressHandlers[KeyCode.L] = OnLKeyPressed;
     }
 
     //first, we will simply make it as many lines as we can hold. Scrolling to be added later
@@ -556,6 +613,29 @@ public class ConsoleController : MonoBehaviour
         }
     }
 
+    public void OnSKeyPressed()
+    {
+        if(Input.GetKey(KeyCode.LeftControl) || Input.GetKey(KeyCode.RightControl))
+        {
+            Save("fname.txt");
+        }else if(IsUpperCase()){
+            OnKeyPressed('S');
+        }else{
+            OnKeyPressed('s');
+        }
+    }
+
+    public void OnLKeyPressed()
+    {
+        if(Input.GetKey(KeyCode.LeftControl) || Input.GetKey(KeyCode.RightControl))
+        {
+            Load("fname.txt");
+        }else if(IsUpperCase()){
+            OnKeyPressed('L');
+        }else{
+            OnKeyPressed('l');
+        }
+    }
 
     public void InsertLines(string[] strs)
     {
@@ -908,7 +988,7 @@ public class ConsoleController : MonoBehaviour
             }
         }
 
-        HashSet<char> excluded = new HashSet<char>(){(char)(8),(char)(10),(char)(13),'c','C','v','V','x','X','y','Y','z','Z','a','A'};
+        HashSet<char> excluded = new HashSet<char>(){(char)(8),(char)(10),(char)(13),'c','C','v','V','x','X','y','Y','z','Z','a','A','s','S','l','L'};
         foreach(char ch in Input.inputString)
         {
             if(!excluded.Contains(ch)){
