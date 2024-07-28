@@ -8,7 +8,6 @@ using System.IO;
 public class ConsoleController : MonoBehaviour
 {
 
-
     //TODO Cosmetic
         //console frame
         //menu options (save, load, new, font size)
@@ -677,6 +676,7 @@ public class ConsoleController : MonoBehaviour
         }
         t.Apply(this);
         AdjustScrollToCursor();
+        UpdateConsole();
     }
 
     public void AdjustScrollToCursor()

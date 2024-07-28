@@ -33,6 +33,7 @@ public class LegacyMouseListener : MonoBehaviour, IPointerDownHandler, IPointerU
 
     public void OnPointerDown(PointerEventData eventData)
     {
+        Debug.Log("pointer down");
         isMouseDown = true;
         // Calculate proportions when the mouse button is pressed.
         CalculateProportions(eventData.position);
@@ -69,7 +70,7 @@ public class LegacyMouseListener : MonoBehaviour, IPointerDownHandler, IPointerU
     private void CalculateProportions(Vector2 screenPosition)
     {
         // Convert screen coordinates to canvas coordinates
-        RectTransform canvasRect = GetComponentInParent<Canvas>().GetComponent<RectTransform>();
+        RectTransform canvasRect = GetComponent<RectTransform>();
         Vector2 canvasPosition;
         RectTransformUtility.ScreenPointToLocalPointInRectangle(canvasRect, screenPosition, null, out canvasPosition);
 

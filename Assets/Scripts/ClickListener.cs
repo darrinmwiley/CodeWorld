@@ -5,7 +5,7 @@ using UnityEngine;
 public class ClickListener : MonoBehaviour
 {
     public LookListener lookListener;
-    public MouseListener mouseListener;
+    //public MouseListener mouseListener;
 
     List<ClickAction> clickHandlers = new List<ClickAction>(){};
 
