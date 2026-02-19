@@ -1,0 +1,18 @@
+syntax = "proto3";
+
+option java_package = "com.codeworld.generated";
+option java_multiple_files = true;
+
+service CodeWorldService {
+  rpc StreamObjectData (stream ObjectStatus) returns (stream ColorRequest);
+}
+
+message ColorRequest {
+  float r = 1;
+  float g = 2;
+  float b = 3;
+}
+
+message ObjectStatus {
+  string message = 1;
+}

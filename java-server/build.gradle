@@ -1,0 +1,37 @@
+plugins {
+    id 'java'
+    id 'com.google.protobuf' version '0.9.4'
+    id 'application'
+}
+
+repositories { mavenCentral() }
+
+def grpcVersion = "1.66.0"
+def protobufVersion = "3.25.3"
+
+dependencies {
+    implementation "io.grpc:grpc-netty-shaded:${grpcVersion}"
+    implementation "io.grpc:grpc-protobuf:${grpcVersion}"
+    implementation "io.grpc:grpc-stub:${grpcVersion}"
+    compileOnly "org.apache.tomcat:annotations-api:6.0.53"
+}
+
+sourceSets {
+    main {
+        proto { srcDir "../proto" }   // <-- single source of truth: CodeWorld/proto
+    }
+}
+
+protobuf {
+    protoc { artifact = "com.google.protobuf:protoc:${protobufVersion}" }
+    plugins { grpc { artifact = "io.grpc:protoc-gen-grpc-java:${grpcVersion}" } }
+    generateProtoTasks { all()*.plugins { grpc {} } }
+}
+
+java {
+    toolchain { languageVersion = JavaLanguageVersion.of(25) }
+}
+
+application {
+    mainClass = "com.codeworld.server.CodeWorldServer"
+}
