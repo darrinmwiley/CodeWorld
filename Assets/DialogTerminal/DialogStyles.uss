@@ -1,0 +1,43 @@
+.root-container {
+    flex-grow: 1;
+    /* This makes the root invisible so you can see the game */
+    background-color: rgba(0, 0, 0, 0); 
+    /* Pushes the box to the bottom center */
+    justify-content: flex-end;
+    align-items: center;
+    padding-bottom: 50px;
+}
+
+/* THE CONSOLE BOX */
+.terminal-container {
+    flex-direction: row;
+    /* Fixed sizes prevent it from expanding to full screen */
+    width: 700px; 
+    height: 160px;
+    background-color: #000000;
+    border-width: 2px;
+    border-color: #FFFFFF;
+    padding: 15px;
+    /* Prevents the parent from stretching this element */
+    flex-grow: 0;
+    flex-shrink: 0;
+}
+/* The Avatar box - making it look like a CRT monitor sub-window */
+.avatar {
+    width: 130px;
+    height: 130px;
+    border-width: 1px;
+    border-color: #FFFFFF;
+    margin-right: 20px;
+    flex-shrink: 0;
+}
+
+.message-text {
+    flex-grow: 1;
+    color: #FFFFFF;
+    font-size: 22px;
+    white-space: normal;       /* Keeps text inside the box */
+    -unity-font-style: bold;
+    padding-left: 10px;
+}
+
