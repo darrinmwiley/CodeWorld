@@ -272,7 +272,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!4 &5240771479555520432
 Transform:
   m_ObjectHideFlags: 0
@@ -425,6 +425,7 @@ MonoBehaviour:
   canRun: 0
   runSpeed: 9
   runningKey: 304
+  movementLocked: 0
 --- !u!1 &5241892580736583940
 GameObject:
   m_ObjectHideFlags: 0
@@ -626,6 +627,7 @@ MonoBehaviour:
   character: {fileID: 5238820401998598406}
   sensitivity: 2
   smoothing: 1.5
+  raycastDistance: 10
 --- !u!114 &4309024750410872011
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -649,7 +651,7 @@ MonoBehaviour:
     m_Bits: 1
   m_VolumeTrigger: {fileID: 0}
   m_VolumeFrameworkUpdateModeOption: 2
-  m_RenderPostProcessing: 0
+  m_RenderPostProcessing: 1
   m_Antialiasing: 0
   m_AntialiasingQuality: 2
   m_StopNaN: 0
@@ -715,4 +717,4 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   distanceThreshold: 0.15
-  isGrounded: 1
+  isGrounded: 0

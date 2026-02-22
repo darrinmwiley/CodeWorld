@@ -44,6 +44,14 @@ public class ClickListener : MonoBehaviour
         clickHandlers.Add(action);
     }
 
+    public void RemoveClickHandler(ClickAction action)
+    {
+        if (clickHandlers.Contains(action))
+        {
+            clickHandlers.Remove(action);
+        }
+    }
+
     // Update is called once per frame
     void Update()
     {
