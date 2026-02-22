@@ -5,24 +5,19 @@ using System.Collections;
 public class TerminalDialogue : MonoBehaviour
 {
     private Label _messageLabel;
+    private Label _promptLabel; 
     private VisualElement _avatarBox;
     private VisualElement _container;
 
-    private VisualElement _terminalDialog;
-
     [Header("Typewriter Settings")]
     public float charsPerSecond = 25f;
-    private bool _isTyping = false;
+    public bool IsTyping { get; private set; } = false;
 
-    [Header("Test Data")]
-    public KeyCode testKey = KeyCode.T;
-    public Texture2D testPortrait;
-    private int _testIndex = 0;
-    private string[] _testMessages = new string[] {
-        "SYSTEM READY. STANDBY FOR INPUT.",
-        "WARNING: TURTLE POSITION DATA IS FLUCTUATING. PLEASE ENSURE GRID ALIGNMENT IS WITHIN NOMINAL PARAMETERS.",
-        "THE QUICK BROWN FOX JUMPS OVER THE LAZY DOG. THIS MESSAGE IS LONG ON PURPOSE TO TEST IF YOUR TEXT WRAPPING AND FLEXBOX GROW RULES ARE WORKING CORRECTLY."
-    };
+    [Header("Portrait Textures")]
+    public Texture2D idleTex;
+    public Texture2D talkTex1;
+    public Texture2D talkTex2;
+    public float mouthFlapSpeed = 0.15f;
 
     void OnEnable()
     {
@@ -31,56 +26,60 @@ public class TerminalDialogue : MonoBehaviour
 
         _avatarBox = root.Q<VisualElement>("AvatarBox");
         _messageLabel = root.Q<Label>("MessageContent");
+        _promptLabel = root.Q<Label>("Prompt");
         _container = root.Q<VisualElement>("DialogContainer");
 
         _container.style.display = DisplayStyle.None;
-
-        root.style.backgroundColor = new StyleColor(Color.clear);
-    }
-
-    void Update()
-    {
-        // Press 'T' to trigger dialogue
-        if (Input.GetKeyDown(testKey))
-        {
-            CycleTestDialogue();
-        }
-    }
-
-    private void CycleTestDialogue()
-    {
-        string msg = _testMessages[_testIndex];
-        PlayDialogue(msg, testPortrait);
+        if (_promptLabel != null) _promptLabel.style.display = DisplayStyle.None;
         
-        // Cycle to next message for next press
-        _testIndex = (_testIndex + 1) % _testMessages.Length;
+        if (idleTex != null) _avatarBox.style.backgroundImage = idleTex;
     }
 
-    public void PlayDialogue(string text, Texture2D portrait = null)
+    public void PlayDialogue(string text)
     {
         _container.style.display = DisplayStyle.Flex;
-        
-        if (portrait != null)
-        {
-            _avatarBox.style.display = DisplayStyle.Flex;
-            _avatarBox.style.backgroundImage = portrait;
-        }
+        if (_promptLabel != null) _promptLabel.style.display = DisplayStyle.None; 
 
         StopAllCoroutines();
-        StartCoroutine(TypeTextRoutine(text));
+        StartCoroutine(TypeTextAndAnimateRoutine(text));
     }
 
-    private IEnumerator TypeTextRoutine(string text)
+    public void HideDialogue()
     {
-        _isTyping = true;
+        _container.style.display = DisplayStyle.None;
+    }
+
+    private IEnumerator TypeTextAndAnimateRoutine(string text)
+    {
+        IsTyping = true;
         _messageLabel.text = "";
+        float mouthTimer = 0f;
+        bool useTalk1 = true;
 
         foreach (char c in text)
         {
             _messageLabel.text += c;
+            if (!char.IsWhiteSpace(c))
+            {
+                mouthTimer += (1f / charsPerSecond);
+                if (mouthTimer >= mouthFlapSpeed)
+                {
+                    mouthTimer = 0;
+                    useTalk1 = !useTalk1;
+                    _avatarBox.style.backgroundImage = useTalk1 ? talkTex1 : talkTex2;
+                }
+            }
             yield return new WaitForSeconds(1f / charsPerSecond);
         }
 
-        _isTyping = false;
+        IsTyping = false;
+        _avatarBox.style.backgroundImage = idleTex;
+
+        // Visual change to indicate mouse input
+        if (_promptLabel != null)
+        {
+            _promptLabel.text = "Click to continue..."; 
+            _promptLabel.style.display = DisplayStyle.Flex;
+        }
     }
 }

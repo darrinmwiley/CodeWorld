@@ -1,10 +1,13 @@
 using UnityEngine;
+using UnityEngine.Events;
 
 public class FacePowerClickController : MonoBehaviour
 {
     public ClickListener clickListener;
     public QuadFaceAnimator face;
     public QuadFaceAnimator.FaceMode onMode = QuadFaceAnimator.FaceMode.Idle;
+
+    public UnityEvent OnFaceTurnedOn;
 
     void Start() => clickListener.AddClickHandler(OnPress);
 
@@ -17,6 +20,7 @@ public class FacePowerClickController : MonoBehaviour
             // This should play turn-on and land in the right mode.
             if (onMode == QuadFaceAnimator.FaceMode.Talking) face.SetTalking();
             else face.SetIdle(); // Idle
+            OnFaceTurnedOn?.Invoke();
         }
         else
         {

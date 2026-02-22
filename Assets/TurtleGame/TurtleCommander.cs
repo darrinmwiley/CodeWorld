@@ -1,13 +1,15 @@
 using UnityEngine;
 using System.Collections;
 using System.Collections.Generic;
-using System.Linq; // Added for sequence comparison
+using System.Linq;
 
 public class TurtleCommander : MonoBehaviour
 {
     [Header("References")]
     public GraphingUtility graph;
     public CommandDisplay display;
+
+    public NarrativeManager narrativeManager;
 
     [Header("Execution Settings")]
     public float stepDelay = 0.6f; 
@@ -169,6 +171,10 @@ public class TurtleCommander : MonoBehaviour
         }
         else
         {
+            if (narrativeManager != null)
+            {
+                narrativeManager.TriggerVictoryDialogue();
+            }
             Debug.Log("CONGRATS! You beat all levels!");
         }
     }
