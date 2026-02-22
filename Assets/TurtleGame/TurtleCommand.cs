@@ -1,0 +1,1 @@
+public enum TurtleCommand { Forward, Clockwise, CounterClockwise }

@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: f095e89bacfbc2e478674856e53900db
+MonoImporter:
+  externalObjects: {}
+  serializedVersion: 2
+  defaultReferences:
+  - baseMaterial: {instanceID: 0}
+  - texForward: {fileID: 2800000, guid: 0ae2d4b0200c6054bb35565af8802aaf, type: 3}
+  - texCW: {fileID: 2800000, guid: a3dd5e987041bbe409d4c47de90d3987, type: 3}
+  - texCCW: {fileID: 2800000, guid: dcedf5ad59b9d014698099f6a8df0e42, type: 3}
+  executionOrder: 0
+  icon: {instanceID: 0}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
