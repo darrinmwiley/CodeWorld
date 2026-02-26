@@ -1,0 +1,33 @@
+.root-container {
+    flex-grow: 1;
+    background-color: rgba(0, 0, 0, 0);
+    justify-content: flex-end;
+    align-items: center;
+    /* This creates the 'Available Space minus Margin' effect */
+    padding-left: 40px;
+    padding-right: 40px;
+    padding-bottom: 40px;
+}
+
+.terminal-container {
+    flex-direction: row;
+    /* Take up all space allowed by the root's padding */
+    width: 100%; 
+    /* Set a maximum so it doesn't look ridiculous on ultra-wide monitors */
+    max-width: 1200px; 
+    height: 180px;
+    background-color: #000000;
+    border-width: 2px;
+    border-color: #FFFFFF;
+    padding: 15px;
+    flex-shrink: 0;
+}
+
+.message-text {
+    /* This is the magic combo for wrapping without stretching */
+    flex-basis: 0;
+    flex-grow: 1;
+    flex-shrink: 1;
+    white-space: normal;
+    color: #FFFFFF;
+}

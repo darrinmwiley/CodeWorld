@@ -12,7 +12,7 @@ using UnityEditor.Compilation;
 
 namespace RoslynCSharp.HotReloading
 {
-    public class RealtimeScriptWatcher
+    public class RealtimeScriptWatcher : IDisposable
     {
         // Private
         private static bool reloadingFlag = false;
@@ -29,7 +29,7 @@ namespace RoslynCSharp.HotReloading
             this.watcher.Filter = "*.cs";
             this.watcher.IncludeSubdirectories = true;
             this.watcher.EnableRaisingEvents = true;
-
+            
             // Add listener
             this.watcher.Changed += OnFileWatcherChanged;
 
@@ -37,7 +37,17 @@ namespace RoslynCSharp.HotReloading
             SceneView.duringSceneGui += OnSceneView;
         }
 
+        ~RealtimeScriptWatcher()
+        {
+            Dispose();
+        }
+
         // Methods
+        public void Dispose()
+        {
+            watcher.Dispose();
+        }
+
         private void OnFileWatcherChanged(object sender, FileSystemEventArgs e)
         {
             if(e.ChangeType == WatcherChangeTypes.Changed)

@@ -1,9 +1,0 @@
-<ui:UXML xmlns:ui="UnityEngine.UIElements" xmlns:uie="UnityEditor.UIElements" xsi="http://www.w3.org/2001/XMLSchema-instance" engine="UnityEngine.UIElements" editor="UnityEditor.UIElements" noNamespaceSchemaLocation="../../UIElementsSchema/UIElements.xsd" editor-extension-mode="False">
-    <Style src="project://database/Assets/DialogTerminal/DialogStyles.uss?fileID=7433441132597879392&amp;guid=eb6a2591ffe5f744fa29104093b3dde1&amp;type=3#DialogStyles" />
-    <ui:VisualElement name="Root" class="root-container" style="flex-grow: 1; background-color: rgba(0, 0, 0, 0); justify-content: center;">
-        <ui:VisualElement name="DialogContainer" class="terminal-container" style="flex-grow: 1; background-color: rgba(0, 0, 0, 0);">
-            <ui:VisualElement name="AvatarBox" class="avatar" style="flex-grow: 1; background-color: rgba(0, 0, 0, 0); align-items: stretch; flex-direction: column-reverse; align-self: stretch; justify-content: flex-end; height: 98px; width: -31px;" />
-            <ui:Label tabindex="-1" text="Label" display-tooltip-when-elided="true" name="MessageLabel" class="message-text" />
-        </ui:VisualElement>
-    </ui:VisualElement>
-</ui:UXML>

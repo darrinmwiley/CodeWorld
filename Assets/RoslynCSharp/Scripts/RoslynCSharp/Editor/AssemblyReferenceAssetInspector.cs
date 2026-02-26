@@ -64,16 +64,51 @@ namespace RoslynCSharp.Editor
             // Select assembly button
             if(GUILayout.Button("Select Assembly File", GUILayout.Height(30)) == true)
             {
-                string path = EditorUtility.OpenFilePanel("Open Assembly File", "Assets", "dll");
-
-                if(string.IsNullOrEmpty(path) == false)
+                // Show selection dialog
+                AssemblyReferenceUtility.ShowFileAssembleSelectionDialog((string asmPath) =>
                 {
-                    // Check for file exists
-                    if(File.Exists(path) == false)
+                    // Set file path
+                    asset.UpdateAssemblyReference(asmPath, Path.GetFileNameWithoutExtension(asmPath));
+
+                    // Mark as dirty
+                    EditorUtility.SetDirty(asset);
+                });
+
+                //string path = EditorUtility.OpenFilePanel("Open Assembly File", "Assets", "dll");
+
+                //if(string.IsNullOrEmpty(path) == false)
+                //{
+                //    // Check for file exists
+                //    if(File.Exists(path) == false)
+                //    {
+                //        Debug.LogError("Assembly file does not exist: " + path);
+                //        return;
+                //    }
+
+                //    // Use relative path if possible
+                //    string relativePath = path.Replace('\\', '/');
+                //    relativePath = FileUtil.GetProjectRelativePath(relativePath);
+
+                //    if (string.IsNullOrEmpty(relativePath) == false && File.Exists(relativePath) == true)
+                //        path = relativePath;
+
+                    
+                //}
+            }
+
+            if(GUILayout.Button("Select Loaded Assembly", GUILayout.Height(30)) == true)
+            {
+                // Show selection menu
+                AssemblyReferenceUtility.ShowLoadedAssemblySelectionContextMenu((Assembly selectedAsm) =>
+                {
+                    // Check for location
+                    if (string.IsNullOrEmpty(selectedAsm.Location) == true || File.Exists(selectedAsm.Location) == false)
                     {
-                        Debug.LogError("Assembly file does not exist: " + path);
+                        Debug.LogError("The selected assembly could not be referenced because its source location could not be determined. Please add the assembly using the full path!");
                         return;
                     }
+
+                    string path = selectedAsm.Location;
 
                     // Use relative path if possible
                     string relativePath = path.Replace('\\', '/');
@@ -82,58 +117,35 @@ namespace RoslynCSharp.Editor
                     if (string.IsNullOrEmpty(relativePath) == false && File.Exists(relativePath) == true)
                         path = relativePath;
 
-                    // Set file path
-                    asset.UpdateAssemblyReference(path, Path.GetFileNameWithoutExtension(path));
+                    // Update the assembly
+                    asset.UpdateAssemblyReference(path, selectedAsm.FullName);
 
                     // Mark as dirty
                     EditorUtility.SetDirty(asset);
-                }
-            }
+                });
 
-            if(GUILayout.Button("Select Loaded Assembly", GUILayout.Height(30)) == true)
-            {                
-                GenericMenu menu = new GenericMenu();
+                //GenericMenu menu = new GenericMenu();
 
-                foreach(Assembly asm in AppDomain.CurrentDomain.GetAssemblies())
-                {
-                    string menuName = asm.FullName;
+                //foreach(Assembly asm in AppDomain.CurrentDomain.GetAssemblies())
+                //{
+                //    string menuName = asm.FullName;
 
-                    if (menuName.StartsWith("Unity") == true)
-                        menuName = "Untiy Assemblies/" + menuName;
-                    else if (menuName.StartsWith("System") == true)
-                        menuName = "System Assemblies/" + menuName;
+                //    if (menuName.StartsWith("Unity") == true)
+                //        menuName = "Untiy Assemblies/" + menuName;
+                //    else if (menuName.StartsWith("System") == true)
+                //        menuName = "System Assemblies/" + menuName;
 
-                    menu.AddItem(new GUIContent(menuName), false, (object value) =>
-                    {
-                        // Get the selected assembly
-                        Assembly selectedAsm = (Assembly)value;
+                //    menu.AddItem(new GUIContent(menuName), false, (object value) =>
+                //    {
+                //        // Get the selected assembly
+                //        Assembly selectedAsm = (Assembly)value;
 
-                        // Check for location
-                        if(string.IsNullOrEmpty(selectedAsm.Location) == true || File.Exists(selectedAsm.Location) == false)
-                        {
-                            Debug.LogError("The selectged assembly could not be referenced because its source location could not be determined. Please add the assembly using the full path!");
-                            return;
-                        }
+                        
+                //    }, asm);
+                //}
 
-                        string path = selectedAsm.Location;
-
-                        // Use relative path if possible
-                        string relativePath = path.Replace('\\', '/');
-                        relativePath = FileUtil.GetProjectRelativePath(relativePath);
-
-                        if (string.IsNullOrEmpty(relativePath) == false && File.Exists(relativePath) == true)
-                            path = relativePath;
-
-                        // Update the assembly
-                        asset.UpdateAssemblyReference(path, selectedAsm.FullName);
-
-                        // Mark as dirty
-                        EditorUtility.SetDirty(asset);
-                    }, asm);
-                }
-
-                // SHow the menu
-                menu.ShowAsContext();
+                //// SHow the menu
+                //menu.ShowAsContext();
             }
 
             if(Screen.width > widthStretch)

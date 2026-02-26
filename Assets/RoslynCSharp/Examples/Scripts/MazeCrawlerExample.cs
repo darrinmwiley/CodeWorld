@@ -1,7 +1,4 @@
-﻿using RoslynCSharp.Compiler;
-using System;
-using System.Collections;
-using System.Collections.Generic;
+﻿using System;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -140,11 +137,13 @@ namespace RoslynCSharp.Example
 
                 //try
                 {
-                    // Compile code
-                    ScriptType type = domain.CompileAndLoadMainSource(cSharpSource, ScriptSecurityMode.UseSettings, assemblyReferences );
+                    ScriptAssembly asm = domain.CompileAndLoadSource(cSharpSource, ScriptSecurityMode.UseSettings, assemblyReferences);
+
+                    // Get type
+                    ScriptType type = asm.FindSubTypeOf<MazeCrawler>();
 
                     // Check for null
-                    if (type == null)
+                    if (asm == null)
                     {
                         if (domain.RoslynCompilerService.LastCompileResult.Success == false)
                             throw new Exception("Maze crawler code contained errors. Please fix and try again");
@@ -153,6 +152,20 @@ namespace RoslynCSharp.Example
                         else
                             throw new Exception("Maze crawler code does not define a class. You must include one class definition of any name that inherits from 'RoslynCSharp.Example.MazeCrawler'");
                     }
+
+                    //// Compile code
+                    //ScriptType type = domain.CompileAndLoadMainSource(cSharpSource, ScriptSecurityMode.UseSettings, assemblyReferences );
+
+                    //// Check for null
+                    //if (type == null)
+                    //{
+                    //    if (domain.RoslynCompilerService.LastCompileResult.Success == false)
+                    //        throw new Exception("Maze crawler code contained errors. Please fix and try again");
+                    //    else if (domain.SecurityResult.IsSecurityVerified == false)
+                    //        throw new Exception("Maze crawler code failed code security verification");
+                    //    else
+                    //        throw new Exception("Maze crawler code does not define a class. You must include one class definition of any name that inherits from 'RoslynCSharp.Example.MazeCrawler'");
+                    //}
 
                     // Check for base class
                     if (type.IsSubTypeOf<MazeCrawler>() == false)

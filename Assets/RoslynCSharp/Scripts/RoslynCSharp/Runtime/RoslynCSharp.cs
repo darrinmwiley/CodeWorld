@@ -6,6 +6,12 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using Trivial.CodeSecurity;
 using Debug = UnityEngine.Debug;
+using Trivial.CodeSecurity.Restrictions;
+using System.Linq;
+using System.Reflection;
+
+
+
 
 #if UNITY_EDITOR
 using UnityEditor;
@@ -51,7 +57,8 @@ namespace RoslynCSharp
         private bool allowPInvoke = false;
 
         [SerializeField, HideInInspector]
-        private CodeSecurityRestrictions securityRestrictions = new CodeSecurityRestrictions();
+        //private CodeSecurityRestrictions securityRestrictions = new CodeSecurityRestrictions();
+        private CodeRestrictions securityRestrictions = GetDefaultCodeRestrictions();
 
         // Compiler options
         [SerializeField, HideInInspector]
@@ -167,7 +174,8 @@ namespace RoslynCSharp
         /// <summary>
         /// The restrictions that are used to security check code.
         /// </summary>
-        public CodeSecurityRestrictions SecurityRestrictions
+        //public CodeSecurityRestrictions SecurityRestrictions
+        public CodeRestrictions SecurityRestrictions
         {
             get { return securityRestrictions; }
         }
@@ -484,5 +492,107 @@ namespace RoslynCSharp
             }
         }
 #endif
+
+        public void ResetDefaultCodeRestrictions()
+        {
+            // Get default
+            securityRestrictions = GetDefaultCodeRestrictions();
+
+            // Save changes
+#if UNITY_EDITOR
+            UnityEditor.EditorUtility.SetDirty(this);
+#endif
+        }
+
+        public static CodeRestrictions GetDefaultCodeRestrictions()
+        {
+            // Get default runtime restrictions
+            CodeRestrictions restrictions = CodeRestrictions.CreateDefaultRestrictions();
+
+            // Get current assemblies
+            Assembly[] currentAssemblies = AppDomain.CurrentDomain.GetAssemblies();
+
+            string[] allowAssemblies = new string[]
+            {
+                // System
+                "System",
+                "System.Core",
+
+                // Unity
+                "UnityEngine.CoreModule",
+
+                // Project
+                "Assembly-CSharp",
+                "RoslynCSharp.Examples",
+            };
+
+
+            // Add all assemblies
+            foreach(Assembly assembly in currentAssemblies)
+            {
+                // Get the name
+                string name = assembly.GetName().Name;
+
+                // Check for allowed
+                if(allowAssemblies.Contains(name) == true)
+                    restrictions.AssemblyRestrictions.Add(CodeAssemblyRestriction.FromAssembly(assembly, CodeRestrictionAllowed.Allow));
+            }
+
+
+            // Remove namespaces that should not be displayed in any cases - makes it easier to find namespaces we are actually using or interested in
+            restrictions.RemoveNamespace("AOT");
+            restrictions.RemoveNamespace("UnityEditor.Experimental");
+            restrictions.RemoveNamespace("JetBrains.Annotations");
+            restrictions.RemoveNamespace("UnityEngineInternal");
+            restrictions.RemoveNamespace("UnityEngine.Internal");
+            restrictions.RemoveNamespace("UnityEngine.TestTools");
+            restrictions.RemoveNamespace("Microsoft.Win32");
+            restrictions.RemoveNamespace("Microsoft.Win32.SafeHandles");
+            restrictions.RemoveNamespace("Microsoft.VisualBasic");
+            restrictions.RemoveNamespace("Microsoft.CSharp");
+            restrictions.RemoveNamespace("System.Runtime.InteropServices");
+
+            // Restrict namespaces
+            restrictions.SetNamespaceAllowed("System.Reflection", CodeRestrictionAllowed.Deny);
+            restrictions.SetNamespaceAllowed("System.Net", CodeRestrictionAllowed.Deny);
+            restrictions.SetNamespaceAllowed("System.IO", CodeRestrictionAllowed.Deny);
+            restrictions.SetNamespaceAllowed("System.Security", CodeRestrictionAllowed.Deny);
+            restrictions.SetNamespaceAllowed("System.Web", CodeRestrictionAllowed.Deny);
+            restrictions.SetNamespaceAllowed("System.CodeDom", CodeRestrictionAllowed.Deny);
+            restrictions.SetNamespaceAllowed("System.Dynamic", CodeRestrictionAllowed.Deny);
+            restrictions.SetNamespaceAllowed("System.Threading", CodeRestrictionAllowed.Deny);
+
+            // Unity specific
+            restrictions.SetNamespaceAllowed("Unity.Profiling", CodeRestrictionAllowed.Deny);
+            restrictions.SetNamespaceAllowed("Unity.Jobs", CodeRestrictionAllowed.Deny);
+            restrictions.SetNamespaceAllowed("Unity.Rendering", CodeRestrictionAllowed.Deny);
+            restrictions.SetNamespaceAllowed("Unity.IO", CodeRestrictionAllowed.Deny);
+            restrictions.SetNamespaceAllowed("Unity.Collections", CodeRestrictionAllowed.Deny);
+            restrictions.SetNamespaceAllowed("Unity.Burst", CodeRestrictionAllowed.Deny);
+            restrictions.SetNamespaceAllowed("UnityEngine.Sprites", CodeRestrictionAllowed.Deny);
+            restrictions.SetNamespaceAllowed("UnityEngine.Profiling", CodeRestrictionAllowed.Deny);
+            restrictions.SetNamespaceAllowed("UnityEngine.Jobs", CodeRestrictionAllowed.Deny);
+            restrictions.SetNamespaceAllowed("UnityEngine.WSA", CodeRestrictionAllowed.Deny);
+            restrictions.SetNamespaceAllowed("UnityEngine.Windows", CodeRestrictionAllowed.Deny);
+            restrictions.SetNamespaceAllowed("UnityEngine.Search", CodeRestrictionAllowed.Deny);
+            restrictions.SetNamespaceAllowed("UnityEngine.Scripting", CodeRestrictionAllowed.Deny);
+            restrictions.SetNamespaceAllowed("UnityEngine.LowLevel", CodeRestrictionAllowed.Deny);
+            restrictions.SetNamespaceAllowed("UnityEngine.PlayerLoop", CodeRestrictionAllowed.Deny);
+            restrictions.SetNamespaceAllowed("UnityEngine.Pool", CodeRestrictionAllowed.Deny);
+            restrictions.SetNamespaceAllowed("UnityEngine.Networking", CodeRestrictionAllowed.Deny);
+            restrictions.SetNamespaceAllowed("UnityEngine.Lumin", CodeRestrictionAllowed.Deny);
+            restrictions.SetNamespaceAllowed("UnityEngine.tvOS", CodeRestrictionAllowed.Deny);
+            restrictions.SetNamespaceAllowed("UnityEngine.iOS", CodeRestrictionAllowed.Deny);
+            restrictions.SetNamespaceAllowed("UnityEngine.Diagnostics", CodeRestrictionAllowed.Deny);
+            restrictions.SetNamespaceAllowed("UnityEngine.Experimental", CodeRestrictionAllowed.Deny);
+            restrictions.SetNamespaceAllowed("UnityEngine.Assertions", CodeRestrictionAllowed.Deny);
+            restrictions.SetNamespaceAllowed("UnityEngine.Apple", CodeRestrictionAllowed.Deny);
+
+
+            // Sort restrictions to make it easier to find entries
+            restrictions.Sort();
+
+            return restrictions;
+        }
     }
 }

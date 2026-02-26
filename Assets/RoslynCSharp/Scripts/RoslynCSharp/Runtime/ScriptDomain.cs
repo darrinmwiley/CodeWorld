@@ -12,6 +12,7 @@ using Microsoft.CodeAnalysis.CSharp;
 using UnityEngine.SceneManagement;
 using RoslynCSharp.Project;
 using System.Linq;
+using Trivial.CodeSecurity.Restrictions;
 
 namespace RoslynCSharp
 {
@@ -717,7 +718,7 @@ namespace RoslynCSharp
         /// Use <see cref="CompileResult"/> to get the output from the compile request.
         /// Use <see cref="SecurityResult"/> to get the output from the code validation request.
         /// </summary>
-        /// <param name="cSharpFile">The C# syntax tree to compile</param>
+        /// <param name="syntaxTree">The C# syntax tree to compile</param>
         /// <param name="securityMode">The code validation used to verify the code</param>
         /// <returns>The compiled and loaded assembly or null if the compile or security verification failed</returns>
         public ScriptAssembly CompileAndLoadSyntaxTree(CSharpSyntaxTree syntaxTree, ScriptSecurityMode securityMode = ScriptSecurityMode.UseSettings, IMetadataReferenceProvider[] additionalReferenceAssemblies = null)
@@ -1547,7 +1548,8 @@ namespace RoslynCSharp
             // Check for security checks
             if (performSecurityCheck == true)
             {
-                CodeSecurityRestrictions restrictions = RoslynCSharp.Settings.SecurityRestrictions;
+                //CodeSecurityRestrictions restrictions = RoslynCSharp.Settings.SecurityRestrictions;
+                CodeRestrictions restrictions = RoslynCSharp.Settings.SecurityRestrictions;
 
                 // Use pinvoke option
                 restrictions.AllowPInvoke = RoslynCSharp.Settings.AllowPInvoke;

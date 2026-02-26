@@ -20,6 +20,8 @@ namespace RoslynCSharp.HotReloading
                 OnInitialize();
         }
 
+
+
         // Methods
         private static void OnInitialize()
         {

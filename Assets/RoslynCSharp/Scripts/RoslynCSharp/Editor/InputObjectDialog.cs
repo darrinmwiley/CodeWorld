@@ -1,5 +1,6 @@
 ﻿using System;
 using Trivial.ImGUI;
+using UnityEditor;
 using UnityEngine;
 
 namespace RoslynCSharp.Editor
@@ -19,19 +20,24 @@ namespace RoslynCSharp.Editor
         private Type inputType = typeof(UnityEngine.Object);
         private Action<UnityEngine.Object> acceptCallback = null;
 
+        private bool requestClose = false;
+
         // Public
         public static readonly Vector2 defaultSize = new Vector2(320, 140);
 
         // Methods
-        public static void ShowDialog<T>(string title, string content, Action<UnityEngine.Object> acceptCallback)
+        public static void ShowDialog<T>(string title, string content, Action<T> acceptCallback) where T : UnityEngine.Object
         {
             // Show the dialog
             InputObjectDialog dialog = ShowWindow<InputObjectDialog>();
 
+            // Listen for update
+            EditorApplication.update += dialog.Tick;
+
             // Update dialog window
             dialog.heading = title;
             dialog.content = content;
-            dialog.acceptCallback = acceptCallback;
+            dialog.acceptCallback = (UnityEngine.Object o) => acceptCallback?.Invoke(o as T);
             dialog.inputType = typeof(T);
 
 
@@ -53,7 +59,9 @@ namespace RoslynCSharp.Editor
                 acceptCallback(input);
 
             // Close the window
-            Close();
+            // NOTE: Cannot call `EditorWindow.Close` direct from `OnLostFocus` callstack as it appears to crash the editor or throw NullReferenceException (Inside Unity codebase) in some versions.
+            // Use a simple flag workaround to close the window on the next editor updat.
+            requestClose = true;
         }
 
         public override void OnImGUI()
@@ -111,6 +119,21 @@ namespace RoslynCSharp.Editor
         private void OnLostFocus()
         {
             CloseDialog(DialogResult.Cancel);
+        }
+
+        private void Tick()
+        {
+            if (requestClose == true)
+            {
+                // Reset flag
+                requestClose = false;
+
+                // Remove listener
+                EditorApplication.update -= Tick;
+
+                // Close the window
+                Close();
+            }
         }
     }
 }

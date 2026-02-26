@@ -75,6 +75,9 @@ namespace RoslynCSharp
             this.asmName = assemblyName;
             this.loadType = AssemblyLoadType.LoadByName;
             this.securityMode = securityMode;
+
+            // Start loading
+            StartAsyncOperation();
         }
 
         internal AsyncLoadOperation(ScriptDomain domain, string assemblyPath, ScriptSecurityMode securityMode, string symbolPath = null)
@@ -84,6 +87,9 @@ namespace RoslynCSharp
             this.loadType = AssemblyLoadType.LoadByPath;
             this.securityMode = securityMode;
             this.symbolPath = symbolPath;
+
+            // Start loading
+            StartAsyncOperation();
         }
 
         internal AsyncLoadOperation(ScriptDomain domain, byte[] assemblyBytes, ScriptSecurityMode securityMode, byte[] symbolBytes = null)
@@ -93,6 +99,9 @@ namespace RoslynCSharp
             this.loadType = AssemblyLoadType.LoadFromBytes;
             this.securityMode = securityMode;
             this.symbolBytes = symbolBytes;
+
+            // Start loading
+            StartAsyncOperation();
         }
 
         // Methods

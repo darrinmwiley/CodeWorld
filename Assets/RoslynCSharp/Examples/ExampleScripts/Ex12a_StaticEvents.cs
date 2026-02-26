@@ -1,6 +1,6 @@
 ﻿using UnityEngine;
 
-namespace RoslynCSharp.Examples
+namespace RoslynCSharp.Example
 {
     public class Ex12a_StaticEvents : MonoBehaviour
     {

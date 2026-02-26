@@ -44,29 +44,8 @@ namespace RoslynCSharp
         {
             get
             {
-                if(hasStarted == false)
-                {
-                    // Start thread
-                    ThreadPool.QueueUserWorkItem((object state) =>
-                    {
-                        try
-                        {
-                            // Set the flag
-                            hasStarted = true;
-
-                            // Run async code
-                            RunAsyncOperation();
-                        }
-                        catch(Exception e)
-                        {
-                            Debug.LogException(e);
-                            isSuccessful = false;
-                        }
-
-                        // Set exit flag
-                        threadExit = true;
-                    });
-                }
+                // Start if we have not already
+                StartAsyncOperation();
 
                 // CHeck if the thread has exited
                 if (threadExit == false)
@@ -100,5 +79,32 @@ namespace RoslynCSharp
         /// Main entry point for sync finalize code.
         /// </summary>
         protected virtual void RunSyncFinalize() { }
+
+        protected void StartAsyncOperation()
+        {
+            if (hasStarted == false)
+            {
+                // Start thread
+                ThreadPool.QueueUserWorkItem((object state) =>
+                {
+                    try
+                    {
+                        // Set the flag
+                        hasStarted = true;
+
+                        // Run async code
+                        RunAsyncOperation();
+                    }
+                    catch (Exception e)
+                    {
+                        Debug.LogException(e);
+                        isSuccessful = false;
+                    }
+
+                    // Set exit flag
+                    threadExit = true;
+                });
+            }
+        }
     }
 }

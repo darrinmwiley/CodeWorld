@@ -5,7 +5,7 @@ using System.Text;
 using System.Threading.Tasks;
 using UnityEngine;
 
-namespace RoslynCSharp.ExampleScripts
+namespace RoslynCSharp.Example
 {
     public class Ex16a_InstanceEvents : MonoBehaviour
     {

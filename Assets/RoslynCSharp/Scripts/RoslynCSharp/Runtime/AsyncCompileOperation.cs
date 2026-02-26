@@ -93,6 +93,9 @@ namespace RoslynCSharp
             this.sourceOrFiles = sourceOrFiles;
             this.syntaxTrees = syntaxTrees;
             this.additionalReferences = additionalReferenceAssemblies;
+
+            // Start loading
+            StartAsyncOperation();
         }
 
         // Methods

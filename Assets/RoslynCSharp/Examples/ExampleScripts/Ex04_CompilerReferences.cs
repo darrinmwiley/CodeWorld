@@ -25,7 +25,6 @@ namespace RoslynCSharp.Example
             if (domain.IsCompilerServiceInitialized == false)
                 throw new InvalidOperationException("Compiler service is not initialized");
 
-
             // Add a reference to 'System.Core' - 'HashSet<>' is defined in 'System.Core.dll'
             Assembly systemCoreAssembly = typeof(System.Collections.Generic.HashSet<>).Assembly;
 

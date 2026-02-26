@@ -4,6 +4,7 @@ using UnityEngine;
 using UnityEngine.UI;
 using System;
 using System.IO;
+using UnityEngine.UIElements;
 
 public class ConsoleController : MonoBehaviour
 {
@@ -21,15 +22,20 @@ public class ConsoleController : MonoBehaviour
 
     public GameObject consoleCharPrefab;
     public GameObject cursorPrefab;
-    public LegacyMouseListener mouseListener;
+    public UIToolkitMouseListenerMono mouseListener;
     public int viewportWidth = 80;
     public int viewportHeight = 24;
     public int spacesPerTab = 4;
     public float heldKeyDelay = .005f;
     public float heldKeyTriggerTime = .4f;
     public List<string> lines = new List<string>();
-    public List<GameObject> rawImageHolders;
-    
+    //public List<GameObject> rawImageHolders;
+
+    public UIDocument uiDocument;
+    string outputElementName = "Content";
+
+    VisualElement _outputVE;
+        
 
     RenderTexture renderTexture;
     GameObject[,] chars;
@@ -67,7 +73,65 @@ public class ConsoleController : MonoBehaviour
         InitKeyHandlers();
         lines.Add("");
         Generate();
+        HookToUIToolkit();
         UpdateConsole();
+    }
+
+    void HookToUIToolkit()
+    {
+        if (uiDocument == null) uiDocument = FindObjectOfType<UIDocument>();
+        _outputVE = uiDocument.rootVisualElement.Q<VisualElement>(outputElementName);
+
+        // 1) Apply the RenderTexture as a background image
+        _outputVE.style.backgroundImage =
+            new StyleBackground(Background.FromRenderTexture(renderTexture));
+
+        // 2) PREVENT SCALING: Set ScaleMode to 'None' (ScaleAndCrop with backgroundSize fixes the ratio)
+        _outputVE.style.unityBackgroundScaleMode = ScaleMode.ScaleAndCrop;
+
+        // 3) 1:1 PIXEL RATIO: Force the background to match the texture's actual dimensions
+        // This prevents the UI from stretching the image when the container grows.
+        _outputVE.style.backgroundSize = new BackgroundSize(renderTexture.width, renderTexture.height);
+
+        // 4) ANCHOR TOP-LEFT: Ensure the texture doesn't center itself
+        _outputVE.style.backgroundPositionX = new BackgroundPosition(BackgroundPositionKeyword.Left);
+        _outputVE.style.backgroundPositionY = new BackgroundPosition(BackgroundPositionKeyword.Top);
+
+        // 5) FILL EXCESS: Set the container background to black for any space outside the texture
+        _outputVE.style.backgroundColor = Color.black;
+
+        // Make console focusable
+        _outputVE.focusable = true;
+
+        // ----------
+        // 1) Click inside console → focus
+        // ----------
+        _outputVE.RegisterCallback<PointerDownEvent>(evt =>
+        {
+            if (evt.button != (int)MouseButton.LeftMouse) return;
+
+            isFocused = true;
+            _outputVE.Focus();
+
+            evt.StopPropagation(); 
+        });
+
+        // ----------
+        // 2) Click outside console → defocus
+        // ----------
+        var root = uiDocument.rootVisualElement;
+        root.RegisterCallback<PointerDownEvent>(evt =>
+        {
+            isFocused = false;
+        });
+
+        // ----------
+        // 3) Mouse Listener Binding
+        // ----------
+        mouseListener.Bind(_outputVE);
+        mouseListener.AddMouseDownHandler(OnMouseDown);
+        mouseListener.AddMouseUpHandler(OnMouseUp);
+        mouseListener.AddMouseDragHandler(OnMouseDrag);
     }
 
     public void Save(string fileName)
@@ -263,16 +327,16 @@ public class ConsoleController : MonoBehaviour
             camera = cameraGO.AddComponent<Camera>();
         SetCamera(camera, bounds.min.x, bounds.max.y, bounds.max.x, bounds.min.y);
         int textureWidth = 1000;
-        RenderTexture renderTexture = CreateRenderTexture(camera, textureWidth);
+        renderTexture = CreateRenderTexture(camera, textureWidth);
         //QUICKCODE SKETCH 
-        foreach(GameObject holder in rawImageHolders){
+        /*foreach(GameObject holder in rawImageHolders){
             //need to look up rawimage parent for canvas to get proper transform TODO
             RectTransform canvasRectTransform = holder.transform.parent.gameObject.GetComponent<RectTransform>();
             RawImage rawImage = holder.GetComponent<RawImage>();
             rawImage.texture = renderTexture;
             RectTransform rectTransform = rawImage.rectTransform;
             rectTransform.sizeDelta = canvasRectTransform.sizeDelta;
-        }
+        }*/
     }
 
     public Bounds GetBounds()
@@ -361,7 +425,6 @@ public class ConsoleController : MonoBehaviour
                     //blue
                     foreach(Vector3Int keyword in keywordLocations)
                     {
-                        Debug.Log(keyword+" "+lineNumber+" "+c);
                         if(keyword.x - 1 == lineNumber && keyword.y <= c && keyword.z >= c)
                         {
                             SetCellTextColor(i,j,new Color(86 / 256f,156 / 256f,214 / 256f));
@@ -370,7 +433,6 @@ public class ConsoleController : MonoBehaviour
                     //orange
                     foreach(Vector3Int keyword in stringLocations)
                     {
-                        Debug.Log(keyword+" "+lineNumber+" "+c);
                         if(keyword.x - 1 == lineNumber && keyword.y <= c && keyword.z >= c)
                         {
                             SetCellTextColor(i,j,new Color(206 / 256f,132 / 256f,77 / 256f));
@@ -379,7 +441,6 @@ public class ConsoleController : MonoBehaviour
                     //green
                     foreach(Vector3Int keyword in commentLocations)
                     {
-                        Debug.Log(keyword+" "+lineNumber+" "+c);
                         if(keyword.x - 1 == lineNumber && keyword.y <= c && keyword.z >= c)
                         {
                             SetCellTextColor(i,j,new Color(106 / 256f,153 / 256f,85 / 256f));
@@ -822,6 +883,7 @@ public class ConsoleController : MonoBehaviour
 
     //precondition, r1 c1 comes before r2 c2
     string GetRegion(int r1, int c1, int r2, int c2){
+        Debug.Log("get region " + r1 + " " + c1 + " " + r2 + " " + c2);
         if(r1 == r2){
             return lines[r1].Substring(c1, c2 - c1 + 1);
         }
@@ -932,7 +994,6 @@ public class ConsoleController : MonoBehaviour
             c2 = dragStart.y;
         } 
         DeleteRegion(r1,c1,r2,c2 - 1);
-        isHighlighting = false;
         /*EndHighlight();
         if(r1 == r2)
             lines[r1] = lines[r1].Substring(0,c1) + lines[r1].Substring(c2);
@@ -947,6 +1008,7 @@ public class ConsoleController : MonoBehaviour
         }*/
         cursorRow = r1;
         cursorCol = visibleCursorCol = c1;
+        ResetDragState();
         UpdateConsole();
     }
 
@@ -955,6 +1017,14 @@ public class ConsoleController : MonoBehaviour
         GameObject cell = chars[r,c];
         cell.GetComponent<ConsoleCharController>().UpdateColor(Color.white);
         cell.GetComponent<ConsoleCharController>().UpdateTextColor(Color.black);
+    }
+
+    private void ResetDragState()
+    {
+        isHighlighting = false;
+        // Sync the drag anchors to the current cursor to prevent jumps
+        dragStart = new Vector2Int(cursorRow, visibleCursorCol);
+        dragCurrent = new Vector2Int(cursorRow, visibleCursorCol);
     }
 
     void OnScroll(float scrollInput)

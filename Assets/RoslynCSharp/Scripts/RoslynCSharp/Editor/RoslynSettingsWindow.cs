@@ -4,6 +4,8 @@ using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis;
 using UnityEngine;
 using Trivial.CodeSecurity;
+using Trivial.CodeSecurity.Restrictions;
+using System.Reflection;
 
 namespace RoslynCSharp.Editor
 {
@@ -18,15 +20,18 @@ namespace RoslynCSharp.Editor
         private int selectedReference = -1;
         //private int selectedReferenceAsset = -1;
         private int selectedDefineSymbol = -1;
-        private int selectedIllegalReferenceAllow = -1;
-        private int selectedIllegalReferenceDeny = -1;
-        private int selectedIllegalNamespaceAllow = -1;
-        private int selectedIllegalNamespaceDeny = -1;
-        private int selectedIllegalTypeAllow = -1;
-        private int selectedIllegalTypeDeny = -1;
-        private int selectedIllegalMemberAllow = -1;
-        private int selectedIllegalMemberDeny = -1;
+        //private int selectedIllegalReferenceAllow = -1;
+        //private int selectedIllegalReferenceDeny = -1;
+        //private int selectedIllegalNamespaceAllow = -1;
+        //private int selectedIllegalNamespaceDeny = -1;
+        //private int selectedIllegalTypeAllow = -1;
+        //private int selectedIllegalTypeDeny = -1;
+        //private int selectedIllegalMemberAllow = -1;
+        //private int selectedIllegalMemberDeny = -1;
         private int selectedTab = 0;
+
+        private RestrictionsDrawerGUI drawer = null;
+        private RestrictionsElementDrawerGUI elementDrawer = null;
 
         //private SecuritySettingsDrawer securityDrawer = null;
 
@@ -55,16 +60,6 @@ namespace RoslynCSharp.Editor
             // Use default settings
             if (settings == null)
                 settings = CreateInstance<RoslynCSharp>();
-
-
-
-
-            CodeSecurityAllowance s = new CodeSecurityAllowance();
-
-            s.AddAssemblyAllowance("mscorlib, 1.0.0.0");
-            s.AddAssemblyAllowance("testAsm");
-
-            //securityDrawer = new SecuritySettingsDrawer(s);
         }
 
         protected override void OnDisable()
@@ -249,6 +244,22 @@ namespace RoslynCSharp.Editor
                     return null;
                 }, OnListItemImGUI);
 
+                // Reference assets
+                //selectedReferenceAsset = ImGUILayout.Listbox<AssemblyReferenceAsset>("Reference Assets", settings.ReferenceAssets, selectedReferenceAsset, () =>
+                //{
+                //    // Get input from the user
+                //    InputObjectDialog.ShowDialog<AssemblyReferenceAsset>("Add Assembly Reference Asset", "Select the assembly reference asset to add", (AssemblyReferenceAsset input) =>
+                //    {
+                //        // Add the new reference
+                //        if(settings.ReferenceAssets.Contains(input) == false)
+                //        {
+                //            settings.ReferenceAssets.Add(input);
+                //            Repaint();
+                //        }
+                //    });
+                //    return null;
+                //}, OnListItemImGUI);
+
                 //// Reference assets
                 //selectedReferenceAsset = ImGUILayout.Listbox<AssemblyReferenceAsset>("Reference Assets", settings.ReferenceAssets, selectedReferenceAsset, () =>
                 //{
@@ -313,272 +324,381 @@ namespace RoslynCSharp.Editor
                 ImGUILayout.Space(10);
 
 
-                // Disable if security check is not enabled
-                ImGUI.PushEnabledVisualState(settings.SecurityCheckCode);
+                // Create restrictions element drawer
+                if (drawer == null) drawer = new RestrictionsDrawerGUI();
+                if (elementDrawer == null) elementDrawer = new RestrictionsElementDrawerGUI(target);
+
+                GUILayout.BeginVertical(EditorStyles.helpBox);
                 {
-                    // Heading
-                    ImGUI.SetNextStyle(ImGUIStyle.BoldLabel);
-                    ImGUILayout.Label("Assembly Reference Restrictions");
-
-                    // Default behaviour
-                    ImGUILayout.BeginLayout(ImGUILayoutType.Horizontal);
+                    // Title
+                    GUILayout.Space(3);
+                    GUILayout.BeginHorizontal();
                     {
-                        // Label
-                        ImGUI.SetNextWidth(labelWidth);
-                        ImGUILayout.Label("Default Behaviour:");
-
-                        // Field
-                        settings.SecurityRestrictions.AssemblyReferences.DefaultBehaviour = (CodeSecurityRestrictions.CodeSecurityBehaviour)ImGUILayout.EnumPopup(settings.SecurityRestrictions.AssemblyReferences.DefaultBehaviour);
+                        GUILayout.FlexibleSpace();
+                        GUILayout.Label("Code Restrictions");
+                        GUILayout.FlexibleSpace();
                     }
-                    ImGUILayout.EndLayout();
+                    GUILayout.EndHorizontal();
+                    GUILayout.Space(3);
 
-                    // Use regex
-                    ImGUILayout.BeginLayout(ImGUILayoutType.Horizontal);
+                    CodeAssemblyRestriction deleteRestriction = null;
+
+                    // Draw restrictions
+                    foreach (CodeAssemblyRestriction assemblyRestriction in settings.SecurityRestrictions.RuntimeAndAssemblyRestrictions)
                     {
-                        // Label
-                        ImGUI.SetNextWidth(labelWidth);
-                        ImGUILayout.Label("Use Regex Matching:");
+                        float height = drawer.CalculateAssemblyRestrictionTreeViewRequiredHeight(assemblyRestriction, elementDrawer);
+                        Rect drawRect = GUILayoutUtility.GetRect(Screen.width, height);
 
-                        // Field
-                        settings.SecurityRestrictions.AssemblyReferences.UseRegexMatch = ImGUILayout.Toggle(settings.SecurityRestrictions.AssemblyReferences.UseRegexMatch);
-                    }
-                    ImGUILayout.EndLayout();
+                        drawRect.width = Screen.width;
+                        drawRect.height = height;
 
-                    ImGUILayout.BeginLayout(Screen.width > 550 ? ImGUILayoutType.Horizontal : ImGUILayoutType.Vertical);
-                    {
-                        selectedIllegalReferenceAllow = ImGUILayout.Listbox("Whitelist", settings.SecurityRestrictions.AssemblyReferences.AllowEntries, selectedIllegalReferenceAllow, () =>
+                        // Draw the tree view
+                        if(drawer.DrawAssemblyRestrictionTreeView(assemblyRestriction, elementDrawer, drawRect, Vector2.zero) == true)
                         {
-                            InputDialog.ShowDialog("Add Assembly Reference", "Enter the name of the allowable assembly reference. The reference name should be the assembly name only, For example: 'mscorlib'", (string input) =>
-                            {
-                            // Add new entry
-                            settings.SecurityRestrictions.AssemblyReferences.AddEntryName(input, CodeSecurityRestrictions.CodeSecurityBehaviour.Allow);
-                                Repaint();
-                            });
+                            deleteRestriction = assemblyRestriction;
+                        }
+                    }
 
-                            return null;
-                        }, OnListItemImGUI);
+                    // Check for delete
+                    if(deleteRestriction != null)
+                    {
+                        // Remove from settings
+                        settings.SecurityRestrictions.AssemblyRestrictions.Remove(deleteRestriction);
+                        settings.SecurityRestrictions.Sort();
 
-                        selectedIllegalReferenceDeny = ImGUILayout.Listbox("Blacklist", settings.SecurityRestrictions.AssemblyReferences.DenyEntries, selectedIllegalReferenceDeny, () =>
+                        // Clear reference
+                        deleteRestriction = null;
+
+                        // Save changes
+                        EditorUtility.SetDirty(settings);
+                    }
+                }
+                GUILayout.EndVertical();
+
+
+                // Select assembly button
+                if (GUILayout.Button("Add Assembly File", GUILayout.Height(30)) == true)
+                {
+                    // Show selection dialog
+                    AssemblyReferenceUtility.ShowFileAssembleSelectionDialog((string asmPath) =>
+                    {
+                        // Add assembly from restrictions
+                        Assembly asmModule = Assembly.ReflectionOnlyLoadFrom(asmPath);
+
+                        // Create the assembly
+                        CodeAssemblyRestriction asm = CodeAssemblyRestriction.FromAssembly(asmModule);
+
+                        // Check for already added
+                        if (settings.SecurityRestrictions.AssemblyRestrictions.Exists(a => a.AssemblyName == asm.AssemblyName) == false)
                         {
-                            InputDialog.ShowDialog("Add Assembly Reference", "Enter the name of the illegal assembly reference. The reference name should be the assembly name only, For example: 'mscorlib'", (string input) =>
-                            {
-                            // Add new entry
-                            settings.SecurityRestrictions.AssemblyReferences.AddEntryName(input, CodeSecurityRestrictions.CodeSecurityBehaviour.Deny);
-                                Repaint();
-                            });
+                            // Add to restrictions and sort
+                            settings.SecurityRestrictions.AssemblyRestrictions.Add(asm);
+                            settings.SecurityRestrictions.Sort();
 
-                            return null;
-                        }, OnListItemImGUI);
-                    }
-                    ImGUILayout.EndLayout();
-                    ImGUILayout.Space(10);
+                            // Save changes
+                            EditorUtility.SetDirty(settings);
+                        }
+                        else
+                            Debug.LogError("An assembly restriction already exists for assembly: " + asm.AssemblyName);
+                    });
+                }
 
-
-                    // Heading
-                    ImGUI.SetNextStyle(ImGUIStyle.BoldLabel);
-                    ImGUILayout.Label("Namespace Reference Restrictions");
-
-                    // Default behaviour
-                    ImGUILayout.BeginLayout(ImGUILayoutType.Horizontal);
+                if (GUILayout.Button("Add Loaded Assembly", GUILayout.Height(30)) == true)
+                {
+                    // Show selection menu
+                    AssemblyReferenceUtility.ShowLoadedAssemblySelectionContextMenu((Assembly selectedAsm) =>
                     {
-                        // Label
-                        ImGUI.SetNextWidth(labelWidth);
-                        ImGUILayout.Label("Default Behaviour:");
+                        // Create the assembly
+                        CodeAssemblyRestriction asm = CodeAssemblyRestriction.FromAssembly(selectedAsm);
 
-                        // Field
-                        settings.SecurityRestrictions.NamespaceReferences.DefaultBehaviour = (CodeSecurityRestrictions.CodeSecurityBehaviour)ImGUILayout.EnumPopup(settings.SecurityRestrictions.NamespaceReferences.DefaultBehaviour);
-                    }
-                    ImGUILayout.EndLayout();
-
-                    // Use regex
-                    ImGUILayout.BeginLayout(ImGUILayoutType.Horizontal);
-                    {
-                        // Label
-                        ImGUI.SetNextWidth(labelWidth);
-                        ImGUILayout.Label("Use Regex Matching:");
-
-                        // Field
-                        settings.SecurityRestrictions.NamespaceReferences.UseRegexMatch = ImGUILayout.Toggle(settings.SecurityRestrictions.NamespaceReferences.UseRegexMatch);
-                    }
-                    ImGUILayout.EndLayout();
-
-                    ImGUILayout.BeginLayout(Screen.width > 550 ? ImGUILayoutType.Horizontal : ImGUILayoutType.Vertical);
-                    {
-                        selectedIllegalNamespaceAllow = ImGUILayout.Listbox("Whitelist", settings.SecurityRestrictions.NamespaceReferences.AllowEntries, selectedIllegalNamespaceAllow, () =>
+                        // Check for already added
+                        if (settings.SecurityRestrictions.AssemblyRestrictions.Exists(a => a.AssemblyName == asm.AssemblyName) == false)
                         {
-                            InputDialog.ShowDialog("Add Namespace Reference", "Enter the name of the allowable namespace. You can also use wildcards to specify that all child namespaces should also be included, For example: 'System.IO.*'", (string input) =>
-                            {
-                                // Add new entry
-                                settings.SecurityRestrictions.NamespaceReferences.AddEntryName(input, CodeSecurityRestrictions.CodeSecurityBehaviour.Allow);
-                                Repaint();
-                            });
+                            // Add to restrictions and sort
+                            settings.SecurityRestrictions.AssemblyRestrictions.Add(asm);
+                            settings.SecurityRestrictions.Sort();
 
-                            return null;
-                        }, OnListItemImGUI);
+                            // Save changes
+                            EditorUtility.SetDirty(settings);
+                        }
+                        else
+                            Debug.LogError("An assembly restriction already exists for assembly: " + asm.AssemblyName);
+                    });
+                }
 
-                        selectedIllegalNamespaceDeny = ImGUILayout.Listbox("Blacklist", settings.SecurityRestrictions.NamespaceReferences.DenyEntries, selectedIllegalNamespaceDeny, () =>
-                        {
-                            InputDialog.ShowDialog("Add Namespace Reference", "Enter the name of the illegal namespace. You can also use wildcards to specify that all child namespaces should also be included, For example: 'System.IO.*'", (string input) =>
-                            {
-                                // Add new entry
-                                settings.SecurityRestrictions.NamespaceReferences.AddEntryName(input, CodeSecurityRestrictions.CodeSecurityBehaviour.Deny);
-                                Repaint();
-                            });
+                // Reset button
+                if (GUILayout.Button("Reset Security Restrictions", GUILayout.Height(30)) == true)
+                {
+                    if (EditorUtility.DisplayDialog("Reset Security Restrictions?", "This action cannot be undone! You will lose all current security restriction settings that you have made and the default restrictions will be setup instead!", "Ok", "Cancel") == true)
+                        RoslynCSharp.Settings.ResetDefaultCodeRestrictions();
+                }
 
-                            return null;
-                        }, OnListItemImGUI);
-                    }
-                    ImGUILayout.EndLayout();
-                    ImGUILayout.Space(10);
+                //// Disable if security check is not enabled
+                //ImGUI.PushEnabledVisualState(settings.SecurityCheckCode);
+                //{
+                //    // Heading
+                //    ImGUI.SetNextStyle(ImGUIStyle.BoldLabel);
+                //    ImGUILayout.Label("Assembly Reference Restrictions");
 
+                //    // Default behaviour
+                //    ImGUILayout.BeginLayout(ImGUILayoutType.Horizontal);
+                //    {
+                //        // Label
+                //        ImGUI.SetNextWidth(labelWidth);
+                //        ImGUILayout.Label("Default Behaviour:");
 
-                    // Heading
-                    ImGUI.SetNextStyle(ImGUIStyle.BoldLabel);
-                    ImGUILayout.Label("Type Reference Restrictions");
+                //        // Field
+                //        settings.SecurityRestrictions.AssemblyReferences.DefaultBehaviour = (CodeSecurityRestrictions.CodeSecurityBehaviour)ImGUILayout.EnumPopup(settings.SecurityRestrictions.AssemblyReferences.DefaultBehaviour);
+                //    }
+                //    ImGUILayout.EndLayout();
 
-                    // Default behaviour
-                    ImGUILayout.BeginLayout(ImGUILayoutType.Horizontal);
-                    {
-                        // Label
-                        ImGUI.SetNextWidth(labelWidth);
-                        ImGUILayout.Label("Default Behaviour:");
+                //    // Use regex
+                //    ImGUILayout.BeginLayout(ImGUILayoutType.Horizontal);
+                //    {
+                //        // Label
+                //        ImGUI.SetNextWidth(labelWidth);
+                //        ImGUILayout.Label("Use Regex Matching:");
 
-                        // Field
-                        settings.SecurityRestrictions.TypeReferences.DefaultBehaviour = (CodeSecurityRestrictions.CodeSecurityBehaviour)ImGUILayout.EnumPopup(settings.SecurityRestrictions.TypeReferences.DefaultBehaviour);
-                    }
-                    ImGUILayout.EndLayout();
+                //        // Field
+                //        settings.SecurityRestrictions.AssemblyReferences.UseRegexMatch = ImGUILayout.Toggle(settings.SecurityRestrictions.AssemblyReferences.UseRegexMatch);
+                //    }
+                //    ImGUILayout.EndLayout();
 
-                    // Use regex
-                    ImGUILayout.BeginLayout(ImGUILayoutType.Horizontal);
-                    {
-                        // Label
-                        ImGUI.SetNextWidth(labelWidth);
-                        ImGUILayout.Label("Use Regex Matching:");
+                //    ImGUILayout.BeginLayout(Screen.width > 550 ? ImGUILayoutType.Horizontal : ImGUILayoutType.Vertical);
+                //    {
+                //        selectedIllegalReferenceAllow = ImGUILayout.Listbox("Whitelist", settings.SecurityRestrictions.AssemblyReferences.AllowEntries, selectedIllegalReferenceAllow, () =>
+                //        {
+                //            InputDialog.ShowDialog("Add Assembly Reference", "Enter the name of the allowable assembly reference. The reference name should be the assembly name only, For example: 'mscorlib'", (string input) =>
+                //            {
+                //            // Add new entry
+                //            settings.SecurityRestrictions.AssemblyReferences.AddEntryName(input, CodeSecurityRestrictions.CodeSecurityBehaviour.Allow);
+                //                Repaint();
+                //            });
 
-                        // Field
-                        settings.SecurityRestrictions.TypeReferences.UseRegexMatch = ImGUILayout.Toggle(settings.SecurityRestrictions.TypeReferences.UseRegexMatch);
-                    }
-                    ImGUILayout.EndLayout();
+                //            return null;
+                //        }, OnListItemImGUI);
 
-                    ImGUILayout.BeginLayout(Screen.width > 550 ? ImGUILayoutType.Horizontal : ImGUILayoutType.Vertical);
-                    {
-                        selectedIllegalTypeAllow = ImGUILayout.Listbox("Whitelist", settings.SecurityRestrictions.TypeReferences.AllowEntries, selectedIllegalTypeAllow, () =>
-                        {
-                            InputDialog.ShowDialog("Add Type Reference", "Enter the name of the allowable type. The full type name should be specified excluding the assembly name, For example: 'System.AppDomain'", (string input) =>
-                            {
-                                // Add new entry
-                                settings.SecurityRestrictions.TypeReferences.AddEntryName(input, CodeSecurityRestrictions.CodeSecurityBehaviour.Allow);
-                                Repaint();
-                            });
+                //        selectedIllegalReferenceDeny = ImGUILayout.Listbox("Blacklist", settings.SecurityRestrictions.AssemblyReferences.DenyEntries, selectedIllegalReferenceDeny, () =>
+                //        {
+                //            InputDialog.ShowDialog("Add Assembly Reference", "Enter the name of the illegal assembly reference. The reference name should be the assembly name only, For example: 'mscorlib'", (string input) =>
+                //            {
+                //            // Add new entry
+                //            settings.SecurityRestrictions.AssemblyReferences.AddEntryName(input, CodeSecurityRestrictions.CodeSecurityBehaviour.Deny);
+                //                Repaint();
+                //            });
 
-                            return null;
-                        }, OnListItemImGUI);
-
-                        selectedIllegalTypeDeny = ImGUILayout.Listbox("Blacklist", settings.SecurityRestrictions.TypeReferences.DenyEntries, selectedIllegalTypeDeny, () =>
-                        {
-                            InputDialog.ShowDialog("Add Type Reference", "Enter the name of the illegal type. The full type name should be specified excluding the assembly name, For example: 'System.AppDomain'", (string input) =>
-                            {
-                                // Add new entry
-                                settings.SecurityRestrictions.TypeReferences.AddEntryName(input, CodeSecurityRestrictions.CodeSecurityBehaviour.Deny);
-                                Repaint();
-                            });
-
-                            return null;
-                        }, OnListItemImGUI);
-                    }
-                    ImGUILayout.EndLayout();
-                    ImGUILayout.Space(10);
+                //            return null;
+                //        }, OnListItemImGUI);
+                //    }
+                //    ImGUILayout.EndLayout();
+                //    ImGUILayout.Space(10);
 
 
-                    // Heading
-                    ImGUI.SetNextStyle(ImGUIStyle.BoldLabel);
-                    ImGUILayout.Label("Member Reference Restrictions");
+                //    // Heading
+                //    ImGUI.SetNextStyle(ImGUIStyle.BoldLabel);
+                //    ImGUILayout.Label("Namespace Reference Restrictions");
 
-                    // Default behaviour
-                    ImGUILayout.BeginLayout(ImGUILayoutType.Horizontal);
-                    {
-                        // Label
-                        ImGUI.SetNextWidth(labelWidth);
-                        ImGUILayout.Label("Default Behaviour:");
+                //    // Default behaviour
+                //    ImGUILayout.BeginLayout(ImGUILayoutType.Horizontal);
+                //    {
+                //        // Label
+                //        ImGUI.SetNextWidth(labelWidth);
+                //        ImGUILayout.Label("Default Behaviour:");
 
-                        // Field
-                        settings.SecurityRestrictions.MemberReferences.DefaultBehaviour = (CodeSecurityRestrictions.CodeSecurityBehaviour)ImGUILayout.EnumPopup(settings.SecurityRestrictions.MemberReferences.DefaultBehaviour);
-                    }
-                    ImGUILayout.EndLayout();
+                //        // Field
+                //        settings.SecurityRestrictions.NamespaceReferences.DefaultBehaviour = (CodeSecurityRestrictions.CodeSecurityBehaviour)ImGUILayout.EnumPopup(settings.SecurityRestrictions.NamespaceReferences.DefaultBehaviour);
+                //    }
+                //    ImGUILayout.EndLayout();
 
-                    // Use regex
-                    ImGUILayout.BeginLayout(ImGUILayoutType.Horizontal);
-                    {
-                        // Label
-                        ImGUI.SetNextWidth(labelWidth);
-                        ImGUILayout.Label("Use Regex Matching:");
+                //    // Use regex
+                //    ImGUILayout.BeginLayout(ImGUILayoutType.Horizontal);
+                //    {
+                //        // Label
+                //        ImGUI.SetNextWidth(labelWidth);
+                //        ImGUILayout.Label("Use Regex Matching:");
 
-                        // Field
-                        settings.SecurityRestrictions.MemberReferences.UseRegexMatch = ImGUILayout.Toggle(settings.SecurityRestrictions.MemberReferences.UseRegexMatch);
-                    }
-                    ImGUILayout.EndLayout();
+                //        // Field
+                //        settings.SecurityRestrictions.NamespaceReferences.UseRegexMatch = ImGUILayout.Toggle(settings.SecurityRestrictions.NamespaceReferences.UseRegexMatch);
+                //    }
+                //    ImGUILayout.EndLayout();
 
-                    ImGUILayout.BeginLayout(Screen.width > 550 ? ImGUILayoutType.Horizontal : ImGUILayoutType.Vertical);
-                    {
-                        selectedIllegalMemberAllow = ImGUILayout.Listbox("Whitelist", settings.SecurityRestrictions.MemberReferences.AllowEntries, selectedIllegalMemberAllow, () =>
-                        {
-                            InputDialog.ShowDialog("Add Member Reference", "Enter the name of the allowable member including the type name. The full type name should be specified followed by the member name separated by '.', For example: 'UnityEngine.Application.Quit'", (string input) =>
-                            {
-                                // Add new entry
-                                settings.SecurityRestrictions.MemberReferences.AddEntryName(input, CodeSecurityRestrictions.CodeSecurityBehaviour.Allow);
-                                Repaint();
-                            });
+                //    ImGUILayout.BeginLayout(Screen.width > 550 ? ImGUILayoutType.Horizontal : ImGUILayoutType.Vertical);
+                //    {
+                //        selectedIllegalNamespaceAllow = ImGUILayout.Listbox("Whitelist", settings.SecurityRestrictions.NamespaceReferences.AllowEntries, selectedIllegalNamespaceAllow, () =>
+                //        {
+                //            InputDialog.ShowDialog("Add Namespace Reference", "Enter the name of the allowable namespace. You can also use wildcards to specify that all child namespaces should also be included, For example: 'System.IO.*'", (string input) =>
+                //            {
+                //                // Add new entry
+                //                settings.SecurityRestrictions.NamespaceReferences.AddEntryName(input, CodeSecurityRestrictions.CodeSecurityBehaviour.Allow);
+                //                Repaint();
+                //            });
 
-                            return null;
-                        }, OnListItemImGUI);
+                //            return null;
+                //        }, OnListItemImGUI);
 
-                        selectedIllegalMemberDeny = ImGUILayout.Listbox("Blacklist", settings.SecurityRestrictions.MemberReferences.DenyEntries, selectedIllegalMemberDeny, () =>
-                        {
-                            InputDialog.ShowDialog("Add Type Reference", "Enter the name of the illegal member. The full type name should be specified followed by the member name separated by '.', For example: 'UnityEngine.Application.Quit'", (string input) =>
-                            {
-                                // Add new entry
-                                settings.SecurityRestrictions.MemberReferences.AddEntryName(input, CodeSecurityRestrictions.CodeSecurityBehaviour.Deny);
-                                Repaint();
-                            });
+                //        selectedIllegalNamespaceDeny = ImGUILayout.Listbox("Blacklist", settings.SecurityRestrictions.NamespaceReferences.DenyEntries, selectedIllegalNamespaceDeny, () =>
+                //        {
+                //            InputDialog.ShowDialog("Add Namespace Reference", "Enter the name of the illegal namespace. You can also use wildcards to specify that all child namespaces should also be included, For example: 'System.IO.*'", (string input) =>
+                //            {
+                //                // Add new entry
+                //                settings.SecurityRestrictions.NamespaceReferences.AddEntryName(input, CodeSecurityRestrictions.CodeSecurityBehaviour.Deny);
+                //                Repaint();
+                //            });
 
-                            return null;
-                        }, OnListItemImGUI);
-                    }
-                    ImGUILayout.EndLayout();
+                //            return null;
+                //        }, OnListItemImGUI);
+                //    }
+                //    ImGUILayout.EndLayout();
+                //    ImGUILayout.Space(10);
 
-                    //selectedIllegalReference = ImGUILayout.Listbox<string>("References", settings.SecurityRestrictions.References, selectedIllegalReference, ()  =>
-                    //{
-                    //    // Get input from the user
-                    //    InputDialog.ShowDialog("Add Reference", "Enter the name of the illegal reference including the '.dll' file extension, For example: 'UnityEditor.dll'", (string input) =>
-                    //    {
-                    //        // Add the new reference
-                    //        settings.SecurityRestrictions.AddAssemblyReference(input);
-                    //        Repaint();
-                    //    });
 
-                    //    // Dont add item by default
-                    //    return null;
-                    //}, OnListItemImGUI);
+                //    // Heading
+                //    ImGUI.SetNextStyle(ImGUIStyle.BoldLabel);
+                //    ImGUILayout.Label("Type Reference Restrictions");
 
-                    //// Move under list
-                    //ImGUILayout.Space(-negativeVerticalSpaceSize);
+                //    // Default behaviour
+                //    ImGUILayout.BeginLayout(ImGUILayoutType.Horizontal);
+                //    {
+                //        // Label
+                //        ImGUI.SetNextWidth(labelWidth);
+                //        ImGUILayout.Label("Default Behaviour:");
 
-                    //// Illegal references
-                    //ImGUI.SetNextWidth(Screen.width - 100);
-                    //ImGUILayout.BeginLayout(ImGUILayoutType.Horizontal);
-                    //{
-                    //    // Small indent
-                    //    ImGUILayout.Space(5);
+                //        // Field
+                //        settings.SecurityRestrictions.TypeReferences.DefaultBehaviour = (CodeSecurityRestrictions.CodeSecurityBehaviour)ImGUILayout.EnumPopup(settings.SecurityRestrictions.TypeReferences.DefaultBehaviour);
+                //    }
+                //    ImGUILayout.EndLayout();
 
-                    //    // Label
-                    //    ImGUI.SetNextTooltip("Blacklist mode will ensure that all references are not used whereas whitelist mode will only allow the use of the specified references");
-                    //    ImGUILayout.Label("Restriction Type:");
+                //    // Use regex
+                //    ImGUILayout.BeginLayout(ImGUILayoutType.Horizontal);
+                //    {
+                //        // Label
+                //        ImGUI.SetNextWidth(labelWidth);
+                //        ImGUILayout.Label("Use Regex Matching:");
 
-                    //    // Popup
-                    //    settings.SecurityRestrictions.ReferencesMode = (SecurityRestrictions.SecurityRestrictionMode)ImGUILayout.EnumPopup(settings.SecurityRestrictions.ReferencesMode);
-                    //}
-                    //ImGUILayout.EndLayout();
-                    ImGUILayout.Space(10);
+                //        // Field
+                //        settings.SecurityRestrictions.TypeReferences.UseRegexMatch = ImGUILayout.Toggle(settings.SecurityRestrictions.TypeReferences.UseRegexMatch);
+                //    }
+                //    ImGUILayout.EndLayout();
+
+                //    ImGUILayout.BeginLayout(Screen.width > 550 ? ImGUILayoutType.Horizontal : ImGUILayoutType.Vertical);
+                //    {
+                //        selectedIllegalTypeAllow = ImGUILayout.Listbox("Whitelist", settings.SecurityRestrictions.TypeReferences.AllowEntries, selectedIllegalTypeAllow, () =>
+                //        {
+                //            InputDialog.ShowDialog("Add Type Reference", "Enter the name of the allowable type. The full type name should be specified excluding the assembly name, For example: 'System.AppDomain'", (string input) =>
+                //            {
+                //                // Add new entry
+                //                settings.SecurityRestrictions.TypeReferences.AddEntryName(input, CodeSecurityRestrictions.CodeSecurityBehaviour.Allow);
+                //                Repaint();
+                //            });
+
+                //            return null;
+                //        }, OnListItemImGUI);
+
+                //        selectedIllegalTypeDeny = ImGUILayout.Listbox("Blacklist", settings.SecurityRestrictions.TypeReferences.DenyEntries, selectedIllegalTypeDeny, () =>
+                //        {
+                //            InputDialog.ShowDialog("Add Type Reference", "Enter the name of the illegal type. The full type name should be specified excluding the assembly name, For example: 'System.AppDomain'", (string input) =>
+                //            {
+                //                // Add new entry
+                //                settings.SecurityRestrictions.TypeReferences.AddEntryName(input, CodeSecurityRestrictions.CodeSecurityBehaviour.Deny);
+                //                Repaint();
+                //            });
+
+                //            return null;
+                //        }, OnListItemImGUI);
+                //    }
+                //    ImGUILayout.EndLayout();
+                //    ImGUILayout.Space(10);
+
+
+                //    // Heading
+                //    ImGUI.SetNextStyle(ImGUIStyle.BoldLabel);
+                //    ImGUILayout.Label("Member Reference Restrictions");
+
+                //    // Default behaviour
+                //    ImGUILayout.BeginLayout(ImGUILayoutType.Horizontal);
+                //    {
+                //        // Label
+                //        ImGUI.SetNextWidth(labelWidth);
+                //        ImGUILayout.Label("Default Behaviour:");
+
+                //        // Field
+                //        settings.SecurityRestrictions.MemberReferences.DefaultBehaviour = (CodeSecurityRestrictions.CodeSecurityBehaviour)ImGUILayout.EnumPopup(settings.SecurityRestrictions.MemberReferences.DefaultBehaviour);
+                //    }
+                //    ImGUILayout.EndLayout();
+
+                //    // Use regex
+                //    ImGUILayout.BeginLayout(ImGUILayoutType.Horizontal);
+                //    {
+                //        // Label
+                //        ImGUI.SetNextWidth(labelWidth);
+                //        ImGUILayout.Label("Use Regex Matching:");
+
+                //        // Field
+                //        settings.SecurityRestrictions.MemberReferences.UseRegexMatch = ImGUILayout.Toggle(settings.SecurityRestrictions.MemberReferences.UseRegexMatch);
+                //    }
+                //    ImGUILayout.EndLayout();
+
+                //    ImGUILayout.BeginLayout(Screen.width > 550 ? ImGUILayoutType.Horizontal : ImGUILayoutType.Vertical);
+                //    {
+                //        selectedIllegalMemberAllow = ImGUILayout.Listbox("Whitelist", settings.SecurityRestrictions.MemberReferences.AllowEntries, selectedIllegalMemberAllow, () =>
+                //        {
+                //            InputDialog.ShowDialog("Add Member Reference", "Enter the name of the allowable member including the type name. The full type name should be specified followed by the member name separated by '.', For example: 'UnityEngine.Application.Quit'", (string input) =>
+                //            {
+                //                // Add new entry
+                //                settings.SecurityRestrictions.MemberReferences.AddEntryName(input, CodeSecurityRestrictions.CodeSecurityBehaviour.Allow);
+                //                Repaint();
+                //            });
+
+                //            return null;
+                //        }, OnListItemImGUI);
+
+                //        selectedIllegalMemberDeny = ImGUILayout.Listbox("Blacklist", settings.SecurityRestrictions.MemberReferences.DenyEntries, selectedIllegalMemberDeny, () =>
+                //        {
+                //            InputDialog.ShowDialog("Add Type Reference", "Enter the name of the illegal member. The full type name should be specified followed by the member name separated by '.', For example: 'UnityEngine.Application.Quit'", (string input) =>
+                //            {
+                //                // Add new entry
+                //                settings.SecurityRestrictions.MemberReferences.AddEntryName(input, CodeSecurityRestrictions.CodeSecurityBehaviour.Deny);
+                //                Repaint();
+                //            });
+
+                //            return null;
+                //        }, OnListItemImGUI);
+                //    }
+                //    ImGUILayout.EndLayout();
+
+                //selectedIllegalReference = ImGUILayout.Listbox<string>("References", settings.SecurityRestrictions.References, selectedIllegalReference, ()  =>
+                //{
+                //    // Get input from the user
+                //    InputDialog.ShowDialog("Add Reference", "Enter the name of the illegal reference including the '.dll' file extension, For example: 'UnityEditor.dll'", (string input) =>
+                //    {
+                //        // Add the new reference
+                //        settings.SecurityRestrictions.AddAssemblyReference(input);
+                //        Repaint();
+                //    });
+
+                //    // Dont add item by default
+                //    return null;
+                //}, OnListItemImGUI);
+
+                //// Move under list
+                //ImGUILayout.Space(-negativeVerticalSpaceSize);
+
+                //// Illegal references
+                //ImGUI.SetNextWidth(Screen.width - 100);
+                //ImGUILayout.BeginLayout(ImGUILayoutType.Horizontal);
+                //{
+                //    // Small indent
+                //    ImGUILayout.Space(5);
+
+                //    // Label
+                //    ImGUI.SetNextTooltip("Blacklist mode will ensure that all references are not used whereas whitelist mode will only allow the use of the specified references");
+                //    ImGUILayout.Label("Restriction Type:");
+
+                //    // Popup
+                //    settings.SecurityRestrictions.ReferencesMode = (SecurityRestrictions.SecurityRestrictionMode)ImGUILayout.EnumPopup(settings.SecurityRestrictions.ReferencesMode);
+                //}
+                //ImGUILayout.EndLayout();
+                ImGUILayout.Space(10);
 
                     //securityDrawer.OnDrawSettings();
 
@@ -614,7 +734,7 @@ namespace RoslynCSharp.Editor
                     //    settings.SecurityRestrictions.NamespacesMode = (SecurityRestrictions.SecurityRestrictionMode)ImGUILayout.EnumPopup(settings.SecurityRestrictions.NamespacesMode);
                     //}
                     //ImGUILayout.EndLayout();
-                    ImGUILayout.Space(10);
+                    //ImGUILayout.Space(10);
 
 
 
@@ -651,8 +771,8 @@ namespace RoslynCSharp.Editor
                     //    settings.SecurityRestrictions.TypesMode = (SecurityRestrictions.SecurityRestrictionMode)ImGUILayout.EnumPopup(settings.SecurityRestrictions.TypesMode);
                     //}
                     //ImGUILayout.EndLayout();
-                }
-                ImGUI.PopVisualState();
+                //}
+                //ImGUI.PopVisualState();
             }
             else if(selectedTab == 2)
             {

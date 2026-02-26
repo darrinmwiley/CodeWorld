@@ -1,84 +1,100 @@
-using System.Collections;
-using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.Rendering;
 using TMPro;
 
+[DisallowMultipleComponent]
 public class ConsoleCharController : MonoBehaviour
 {
     protected char Char;
 
-    public char GetChar()
+    Canvas _canvas;
+    TextMeshProUGUI _tmp;
+
+    MeshRenderer _bgRenderer;
+    Material _bgMat;
+    int _colorPropId = -1;
+
+    public char GetChar() => Char;
+
+    void Awake()
     {
-        return Char;
+        // Cache TMP
+        _canvas = GetComponentInChildren<Canvas>();
+        if (_canvas != null)
+            _tmp = _canvas.GetComponentInChildren<TextMeshProUGUI>();
+
+        if (_tmp == null)
+            Debug.LogError("ConsoleCharController: TMP not found.");
+
+        // Cache background cube
+        Transform cube = transform.Find("Cube");
+        if (cube == null)
+        {
+            Debug.LogError("ConsoleCharController: Cube child missing.");
+            return;
+        }
+
+        _bgRenderer = cube.GetComponent<MeshRenderer>();
+        if (_bgRenderer == null)
+            _bgRenderer = cube.gameObject.AddComponent<MeshRenderer>();
+
+        // Disable lighting influence
+        _bgRenderer.shadowCastingMode = ShadowCastingMode.Off;
+        _bgRenderer.receiveShadows = false;
+        _bgRenderer.lightProbeUsage = LightProbeUsage.Off;
+        _bgRenderer.reflectionProbeUsage = ReflectionProbeUsage.Off;
+
+        // Pick unlit shader automatically
+        Shader s =
+            Shader.Find("Universal Render Pipeline/Unlit") ??
+            Shader.Find("HDRP/Unlit") ??
+            Shader.Find("Unlit/Color") ??
+            Shader.Find("Unlit/Texture");
+
+        if (s == null)
+        {
+            Debug.LogError("ConsoleCharController: Could not find Unlit shader.");
+            return;
+        }
+
+        // Create material ONCE
+        _bgMat = new Material(s) { name = "ConsoleCell_Unlit_Instance" };
+        _bgRenderer.sharedMaterial = _bgMat;
+
+        // Detect correct color property
+        if (_bgMat.HasProperty("_BaseColor")) _colorPropId = Shader.PropertyToID("_BaseColor");
+        else if (_bgMat.HasProperty("_Color")) _colorPropId = Shader.PropertyToID("_Color");
+        else if (_bgMat.HasProperty("_color")) _colorPropId = Shader.PropertyToID("_color");
+    }
+
+    void OnDestroy()
+    {
+        if (_bgMat != null)
+        {
+            if (Application.isPlaying) Destroy(_bgMat);
+            else DestroyImmediate(_bgMat);
+        }
     }
 
     public void UpdateText(string newText)
     {
+        if (string.IsNullOrEmpty(newText)) return;
+
         Char = newText[0];
-        Canvas canvas = gameObject.GetComponentInChildren<Canvas>();
 
-        if (canvas != null)
-        {
-            TextMeshProUGUI textMeshPro = canvas.GetComponentInChildren<TextMeshProUGUI>();
-
-            if (textMeshPro != null)
-            {
-                textMeshPro.text = newText;
-            }
-            else
-            {
-                Debug.LogError("TextMeshPro component not found in the canvas hierarchy.");
-            }
-        }
-        else
-        {
-            Debug.LogError("Canvas component not found in the target object hierarchy.");
-        }
+        if (_tmp != null)
+            _tmp.text = newText;
     }
 
     public void UpdateTextColor(Color color)
     {
-        Canvas canvas = gameObject.GetComponentInChildren<Canvas>();
-
-        if (canvas != null)
-        {
-            TextMeshProUGUI textMeshPro = canvas.GetComponentInChildren<TextMeshProUGUI>();
-
-            if (textMeshPro != null)
-            {
-                textMeshPro.color = color;
-            }
-            else
-            {
-                Debug.LogError("TextMeshPro component not found in the canvas hierarchy.");
-            }
-        }
-        else
-        {
-            Debug.LogError("Canvas component not found in the target object hierarchy.");
-        }
+        if (_tmp != null)
+            _tmp.color = color;
     }
 
-    public void UpdateColor(Color color) 
+    public void UpdateColor(Color color)
     {
-        GameObject cube = gameObject.transform.Find("Cube").gameObject;
-        MeshRenderer renderer = cube.GetComponent<MeshRenderer>();
-
-        if(renderer == null)
-        {
-            renderer = cube.AddComponent<MeshRenderer>();
-        }
-
-        renderer.material.SetColor("_color", color);
-    }
-    // Start is called before the first frame update
-    void Start()
-    {
-    }
-
-    // Update is called once per frame
-    void Update()
-    {
-        
+        if (_bgMat == null || _colorPropId == -1) return;
+        _bgMat.SetColor(_colorPropId, color);
     }
 }
