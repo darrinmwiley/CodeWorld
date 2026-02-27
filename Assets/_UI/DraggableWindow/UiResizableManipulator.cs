@@ -1,5 +1,6 @@
 using UnityEngine;
 using UnityEngine.UIElements;
+using System;
 
 public class UIResizableManipulator : PointerManipulator
 {
@@ -8,12 +9,14 @@ public class UIResizableManipulator : PointerManipulator
     private VisualElement _targetWindow;
     private bool _isResizing;
     private ResizeDirection _direction;
+    private Action _bringToFrontAction;
 
-    public UIResizableManipulator(VisualElement targetWindow, ResizeDirection direction)
+    public UIResizableManipulator(VisualElement targetWindow, ResizeDirection direction, Action _bringToFrontAction)
     {
         _targetWindow = targetWindow;
         _direction = direction;
         _isResizing = false;
+        this._bringToFrontAction = _bringToFrontAction;
     }
 
     protected override void RegisterCallbacksOnTarget()
@@ -38,6 +41,7 @@ public class UIResizableManipulator : PointerManipulator
                               _targetWindow.resolvedStyle.width, _targetWindow.resolvedStyle.height);
         
         target.CapturePointer(evt.pointerId);
+        _bringToFrontAction?.Invoke();
         evt.StopPropagation();
     }
 

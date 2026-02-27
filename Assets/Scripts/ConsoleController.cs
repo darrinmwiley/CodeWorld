@@ -162,6 +162,7 @@ public class ConsoleController : MonoBehaviour
             if (evt.button != (int)MouseButton.LeftMouse) return;
 
             FocusThisConsole();
+            BringToFront();
 
             evt.StopPropagation();
         });
@@ -169,6 +170,35 @@ public class ConsoleController : MonoBehaviour
         // Bind mouse listener to this VisualElement
         mouseListener.Bind(_outputVE);
         // NOTE: handlers were already added in Start(); don't double-add here.
+    }
+
+    // In ConsoleController.cs
+    public void BringToFront() // Changed to public so manipulators can call it
+    {
+        Debug.Log("bringing to front");
+        if (_outputVE == null || uiDocument == null) return;
+
+        // 1. Internal hierarchy reordering (standard UI Toolkit)
+        VisualElement windowRoot = _outputVE;
+        while (windowRoot.parent != null && windowRoot.parent != uiDocument.rootVisualElement)
+        {
+            windowRoot = windowRoot.parent;
+        }
+        windowRoot?.BringToFront();
+
+        // 2. Global Document reordering
+        int maxSortOrder = 0;
+        foreach (var console in s_allConsoles)
+        {
+            if (console != null && console.uiDocument != null)
+            {
+                // Use Math.Max to find the current "highest" window
+                maxSortOrder = (int)(Mathf.Max(maxSortOrder, console.uiDocument.sortingOrder));
+            }
+        }
+
+        // Set this document to be the new top layer
+        uiDocument.sortingOrder = maxSortOrder + 1;
     }
 
     private void FocusThisConsole()
@@ -973,6 +1003,7 @@ public class ConsoleController : MonoBehaviour
 
     void OnMouseDown()
     {
+        BringToFront();
         Vector2Int cursorLocation = GetCursorLocationForMouse();
         dragStart = new Vector2Int(cursorLocation.x + verticalScroll, cursorLocation.y + horizontalScroll);
         dragCurrent = new Vector2Int(cursorLocation.x + verticalScroll, cursorLocation.y + horizontalScroll);

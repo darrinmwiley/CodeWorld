@@ -1,5 +1,6 @@
 using UnityEngine;
 using UnityEngine.UIElements;
+using System;
 
 public class UIDraggableManipulator : PointerManipulator
 {
@@ -8,15 +9,17 @@ public class UIDraggableManipulator : PointerManipulator
     private VisualElement _windowToMove;
     private bool _isDragging;
 
-    public UIDraggableManipulator(VisualElement windowToMove) 
+    private readonly Action _bringToFrontAction;
+
+    public UIDraggableManipulator(VisualElement windowToMove, Action bringToFrontAction) 
     { 
         _windowToMove = windowToMove; 
+        _bringToFrontAction = bringToFrontAction;
         _isDragging = false;
     }
 
     protected override void RegisterCallbacksOnTarget()
     {
-        // This is where the magic happens. If this doesn't run, nothing works.
         target.RegisterCallback<PointerDownEvent>(OnPointerDown);
         target.RegisterCallback<PointerMoveEvent>(OnPointerMove);
         target.RegisterCallback<PointerUpEvent>(OnPointerUp);
@@ -31,14 +34,28 @@ public class UIDraggableManipulator : PointerManipulator
 
     private void OnPointerDown(PointerDownEvent evt)
     {
-        if (_windowToMove == null) return;
+       if (_windowToMove == null) return;
 
         _isDragging = true;
         _startMousePos = evt.position;
         _startWindowPos = new Vector2(_windowToMove.resolvedStyle.left, _windowToMove.resolvedStyle.top);
 
         target.CapturePointer(evt.pointerId);
-        _windowToMove.BringToFront();
+        
+        _bringToFrontAction.Invoke();
+
+        // Global reorder (Unrelated UIDocs)
+        // Find the UIDocument component in the scene that owns this panel
+        foreach (var uiDoc in UnityEngine.Object.FindObjectsByType<UIDocument>(FindObjectsSortMode.None))
+        {
+            if (uiDoc.rootVisualElement == _windowToMove.panel.visualTree)
+            {
+                // Simple increment or use a global manager to set the highest order
+                uiDoc.sortingOrder += 1; 
+                break;
+            }
+        }
+
         evt.StopPropagation();
     }
 
