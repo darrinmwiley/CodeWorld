@@ -114,8 +114,11 @@ public class UIToolkitMouseListenerMono : MonoBehaviour
         float h = Mathf.Max(1f, _target.contentRect.height);
 
         float px = Mathf.Clamp01(localPos.x / w);
-        float py = Mathf.Clamp01(1f - (localPos.y / h)); // keep your old "1 - y" convention
+        float py = Mathf.Clamp01(1f - (localPos.y / h)); 
 
         currentMousePosition = new Vector2(px, py);
+
+        // DIAGNOSTIC LOG
+        Debug.Log($"[MouseListener] LocalPos: {localPos} | ContentRect: {w}x{h} | Normalized: {currentMousePosition}");
     }
 }

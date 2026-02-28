@@ -169,6 +169,9 @@ public class ConsoleController : MonoBehaviour
 
         // Bind mouse listener to this VisualElement
         mouseListener.Bind(_outputVE);
+        
+        Debug.Log($"[UI Check] Texture: {renderTexture.width}x{renderTexture.height} (Ratio: {(float)renderTexture.width/renderTexture.height:F2})");
+        Debug.Log($"[UI Check] Element: {_outputVE.resolvedStyle.width}x{_outputVE.resolvedStyle.height} (Ratio: {_outputVE.resolvedStyle.width/_outputVE.resolvedStyle.height:F2})");
         // NOTE: handlers were already added in Start(); don't double-add here.
     }
 
@@ -482,11 +485,11 @@ public class ConsoleController : MonoBehaviour
         camera.clearFlags = CameraClearFlags.SolidColor;
         camera.backgroundColor = Color.black;
 
-        // Deterministic framing (no GetBounds needed)
-        float gridMinX = charsGO.transform.position.x + 0f;
-        float gridMaxX = charsGO.transform.position.x + (viewportWidth * CELL_X) + 0.6f; // small fudge for your +.3f
-        float gridMinY = charsGO.transform.position.y + 0f;
-        float gridMaxY = charsGO.transform.position.y + (viewportHeight * CELL_Y) + 1.0f;
+        // Remove the +0.6f and +1.0f to see if the gap disappears
+        float gridMinX = charsGO.transform.position.x;
+        float gridMaxX = charsGO.transform.position.x + (viewportWidth * CELL_X); 
+        float gridMinY = charsGO.transform.position.y;
+        float gridMaxY = charsGO.transform.position.y + (viewportHeight * CELL_Y);
 
         SetCamera(camera, gridMinX, gridMaxY, gridMaxX, gridMinY);
 
@@ -996,8 +999,46 @@ public class ConsoleController : MonoBehaviour
 
     Vector2Int GetCursorLocationForMouse()
     {
-        int r = Mathf.Max(0, Mathf.Min(lines.Count - 1 - verticalScroll, (int)((1 - mouseListener.currentMousePosition.y) * viewportHeight)));
-        int c = Mathf.Max(0, Mathf.Min(lines[r + verticalScroll].Length, (int)(mouseListener.currentMousePosition.x * viewportWidth + .5) - GetLineCountPadding()));
+        if (_outputVE == null || renderTexture == null) return Vector2Int.zero;
+
+        // 1. Get the current size of the UI Element (the "Window")
+        float elemW = _outputVE.resolvedStyle.width;
+        float elemH = _outputVE.resolvedStyle.height;
+
+        // 2. Get the fixed size of the Console Texture (e.g., 1000x500)
+        float texW = renderTexture.width;
+        float texH = renderTexture.height;
+
+        if (elemW <= 0 || elemH <= 0) return Vector2Int.zero;
+
+        // 3. Get normalized mouse position (0.0 to 1.0) relative to the UI element
+        float rawU = mouseListener.currentMousePosition.x;
+        float rawV = mouseListener.currentMousePosition.y;
+
+        // 4. Convert normalized position to literal Window Pixels
+        float pixelX = rawU * elemW;
+        float pixelY = (1f - rawV) * elemH; // y=0 is top in local space
+
+        // 5. Map Window Pixels to Texture UVs (1:1 mapping)
+        // If pixelX is 150 and texW is 1000, textureU is 0.15
+        float textureU = pixelX / texW;
+        float textureV = 1f - (pixelY / texH);
+
+        // 6. Clamp to 0-1 to ensure clicks outside the texture bounds 
+        // (black space) are treated as the edge of the grid.
+        float clampedU = Mathf.Clamp01(textureU);
+        float clampedV = Mathf.Clamp01(textureV);
+
+        // 7. Map UVs to Grid Rows/Columns
+        // Vertical: (1 - V) * height maps 0.0(top) to Row 0
+        int r = Mathf.Max(0, Mathf.Min(lines.Count - 1 - verticalScroll, 
+                (int)((1 - clampedV) * viewportHeight)));
+        
+        // Horizontal: (U * width) - padding
+        int padding = GetLineCountPadding();
+        int c = Mathf.Max(0, Mathf.Min(lines[r + verticalScroll].Length, 
+                (int)(clampedU * viewportWidth + .5) - padding));
+
         return new Vector2Int(r, c);
     }
 
