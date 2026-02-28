@@ -32,7 +32,7 @@ public class ConsoleController : MonoBehaviour
     //public List<GameObject> rawImageHolders;
 
     public UIDocument uiDocument;
-    string outputElementName = "Content";
+    public string outputElementName = "Content";
 
     VisualElement _outputVE;
 
