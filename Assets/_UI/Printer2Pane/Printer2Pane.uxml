@@ -1,0 +1,31 @@
+<ui:UXML xmlns:ui="UnityEngine.UIElements" xmlns:uie="UnityEditor.UIElements" xsi="http://www.w3.org/2001/XMLSchema-instance" engine="UnityEngine.UIElements" editor="UnityEditor.UIElements" noNamespaceSchemaLocation="../../UIElementsSchema/UIElements.xsd" editor-extension-mode="False">
+    <Style src="project://database/Assets/_UI/DialogTerminal/TextStyle.uss?fileID=7433441132597879392&amp;guid=9c73fd3496dac49468703e1c5cd2c824&amp;type=3#TextStyle" />
+    <ui:VisualElement name="Root" picking-mode="Ignore" style="flex-grow: 1; background-color: rgba(0, 0, 0, 0); flex-direction: column-reverse; flex-shrink: 0; margin-left: 0; margin-right: 0; margin-top: 0; margin-bottom: 0; cursor: initial;">
+        <ui:VisualElement name="OuterBorder" class="terminal-container" style="background-color: rgb(0, 0, 0); border-top-color: rgb(255, 255, 255); border-top-width: 0; border-bottom-width: 0; border-right-width: 0; border-left-width: 0; border-left-color: rgb(255, 255, 255); border-right-color: rgb(255, 255, 255); border-bottom-color: rgb(255, 255, 255); margin-right: 0; margin-left: 0; max-width: none; height: 25%; width: 25%; position: absolute; left: 151px; margin-top: 0; margin-bottom: 0; top: 122px; padding-left: 0; padding-right: 0; padding-top: 0; padding-bottom: 0;">
+            <ui:VisualElement name="LeftResize" style="flex-grow: 1; background-color: rgba(0, 0, 0, 0); position: absolute; left: 0; width: auto; max-width: 0; min-width: 8px; height: 100%;" />
+            <ui:VisualElement name="RightResize" style="flex-grow: 1; background-color: rgba(0, 0, 0, 0); right: 0; position: absolute; height: 100%; width: auto; min-width: 8px;" />
+            <ui:VisualElement name="Frame" class="terminal-container" style="background-color: rgb(0, 0, 0); border-top-color: rgb(255, 255, 255); border-top-width: 20px; border-bottom-width: 5px; border-right-width: 5px; border-left-width: 5px; border-left-color: rgb(255, 255, 255); border-right-color: rgb(255, 255, 255); border-bottom-color: rgb(255, 255, 255); margin-right: 0; margin-left: 0; max-width: none; height: 100%; width: 100%; position: absolute; left: 0; margin-top: 0; margin-bottom: 0; top: 0; padding-left: 0; padding-right: 0; padding-top: 0; padding-bottom: 0; flex-direction: column;">
+                <ui:VisualElement style="flex-grow: 1; background-color: rgba(0, 0, 0, 0);">
+                    <ui:VisualElement name="VisualElement" style="flex-grow: 1; background-color: rgba(0, 0, 0, 0); max-height: 20px;">
+                        <ui:VisualElement name="TopContent" style="flex-grow: 1; background-color: rgba(0, 0, 0, 0); flex-shrink: 1; cursor: initial;" />
+                    </ui:VisualElement>
+                    <ui:VisualElement name="VisualElement" style="flex-grow: 1; background-color: rgba(0, 0, 0, 0);">
+                        <ui:VisualElement name="Divider" style="flex-grow: 1; background-color: rgb(255, 255, 255); position: absolute; height: 4px; max-height: 4px; min-height: 4px; width: 101%; top: -4px; left: -1px;" />
+                        <ui:VisualElement name="BottomContent" style="flex-grow: 1; background-color: rgba(0, 0, 0, 0); flex-shrink: 1; cursor: initial; border-top-color: rgb(255, 255, 255); border-top-width: 0; min-height: auto; min-width: auto; border-left-width: 0; border-right-width: 0; border-bottom-width: 0;" />
+                    </ui:VisualElement>
+                </ui:VisualElement>
+            </ui:VisualElement>
+            <ui:VisualElement style="flex-grow: 1; background-color: rgba(0, 0, 0, 0); min-height: 20px; min-width: 100%; max-height: 20px; flex-direction: row;">
+                <ui:Button display-tooltip-when-elided="true" name="PlayButton" style="background-image: url(&apos;project://database/Assets/_UI/DraggableWindow/play.png?fileID=2800000&amp;guid=5a92685e5aeedee43837661e8aa63369&amp;type=3#play&apos;); margin-left: 4px; margin-right: 3px; margin-top: 0; margin-bottom: 0; padding-left: 0; padding-right: 0; padding-top: 0; padding-bottom: 0; width: 18px; height: 18px;" />
+                <ui:VisualElement name="DragHandle" style="flex-grow: 1; background-color: rgba(0, 0, 0, 0); position: relative; top: 0; width: 100%; height: auto; min-height: 20px;" />
+                <ui:VisualElement name="ExitButton" style="flex-grow: 1; background-color: rgba(0, 0, 0, 0); position: relative; right: 1px; top: 1px; cursor: initial; width: 18px; height: 18px; background-image: url(&apos;project://database/Assets/_UI/DraggableWindow/exit.png?fileID=2800000&amp;guid=ee7633024883ef249b7592ed66ccc3e8&amp;type=3#exit&apos;);" />
+            </ui:VisualElement>
+            <ui:VisualElement name="TopResize" style="flex-grow: 1; background-color: rgba(0, 0, 0, 0); position: absolute; top: 0; width: 100%; height: auto; max-height: none; min-height: 4px;" />
+            <ui:VisualElement name="BottomResize" style="flex-grow: 1; background-color: rgba(0, 0, 0, 0); position: absolute; bottom: 0; width: 100%; height: 8px;" />
+            <ui:VisualElement name="BottomRightResize" style="flex-grow: 1; background-color: rgba(0, 0, 0, 0); position: absolute; bottom: 0; width: 8px; height: 8px; right: 0;" />
+            <ui:VisualElement name="BottomLeftResize" style="flex-grow: 1; background-color: rgba(0, 0, 0, 0); position: absolute; bottom: 0; width: 8px; height: 6px; right: auto; left: 0;" />
+            <ui:VisualElement name="TopLeftResize" style="flex-grow: 1; background-color: rgba(0, 0, 0, 0); position: absolute; bottom: auto; width: 8px; height: 6px; right: auto; left: 0; top: 0;" />
+            <ui:VisualElement name="TopRightResize" style="flex-grow: 1; background-color: rgba(0, 0, 0, 0); position: absolute; bottom: auto; width: 8px; height: 6px; right: 0; left: auto; top: 0;" />
+        </ui:VisualElement>
+    </ui:VisualElement>
+</ui:UXML>
