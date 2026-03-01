@@ -4447,6 +4447,15 @@ MonoBehaviour:
   lines: []
   uiDocument: {fileID: 7925485250918055005}
   outputElementName: BottomContent
+  autoFitToWindow: 1
+  geometryPollDelay: 0.05
+  minViewportWidth: 10
+  minViewportHeight: 5
+  maxViewportWidth: 300
+  maxViewportHeight: 120
+  lockGlyphPixelSize: 1
+  glyphPixelWidth: 12
+  glyphPixelHeight: 20
   isHighlighting: 0
   isFocused: 0
   escapeDefocusesAll: 1
@@ -4540,6 +4549,15 @@ MonoBehaviour:
   lines: []
   uiDocument: {fileID: 7925485250918055005}
   outputElementName: TopContent
+  autoFitToWindow: 1
+  geometryPollDelay: 0.05
+  minViewportWidth: 10
+  minViewportHeight: 5
+  maxViewportWidth: 300
+  maxViewportHeight: 120
+  lockGlyphPixelSize: 1
+  glyphPixelWidth: 12
+  glyphPixelHeight: 20
   isHighlighting: 0
   isFocused: 0
   escapeDefocusesAll: 1

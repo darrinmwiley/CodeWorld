@@ -34,6 +34,45 @@ public class ConsoleController : MonoBehaviour
     public UIDocument uiDocument;
     public string outputElementName = "Content";
 
+
+    // --------------------------
+    // Auto-fit viewport to UI size
+    // --------------------------
+    [Header("Auto-Fit")]
+    [Tooltip("When the UI element resizes, recompute how many rows/cols fit and rebuild the viewport.")]
+    public bool autoFitToWindow = true;
+
+    [Tooltip("Debounce delay after a geometry change before recalculating (seconds).")]
+    [Min(0f)] public float geometryPollDelay = 0.05f;
+
+    [Tooltip("Clamp minimum columns when auto-fitting.")]
+    [Min(1)] public int minViewportWidth = 10;
+
+    [Tooltip("Clamp minimum rows when auto-fitting.")]
+    [Min(1)] public int minViewportHeight = 5;
+
+    [Tooltip("Clamp maximum columns when auto-fitting.")]
+    [Min(1)] public int maxViewportWidth = 300;
+
+    [Tooltip("Clamp maximum rows when auto-fitting.")]
+    [Min(1)] public int maxViewportHeight = 120;
+
+    // --------------------------
+    // Keep glyph pixel size constant (avoids stretching)
+    // --------------------------
+    [Header("Glyph Pixel Size")]
+    [Tooltip("If enabled, the RenderTexture will be resized so each glyph cell keeps a constant pixel size when rows/cols change.")]
+    public bool lockGlyphPixelSize = true;
+
+    [Tooltip("RenderTexture pixels per glyph cell (X). Should roughly match CELL_X / CELL_Y ratio to avoid padding.")]
+    [Min(1)] public int glyphPixelWidth = 12;
+
+    [Tooltip("RenderTexture pixels per glyph cell (Y). Should roughly match CELL_X / CELL_Y ratio to avoid padding.")]
+    [Min(1)] public int glyphPixelHeight = 20;
+
+    private Coroutine _autoFitRoutine;
+    private bool _uiHooked;
+
     VisualElement _outputVE;
 
 
@@ -133,25 +172,24 @@ public class ConsoleController : MonoBehaviour
 
     void HookToUIToolkit()
     {
+        if (uiDocument == null)
+        {
+            Debug.LogError("ConsoleController: uiDocument is not set.");
+            return;
+        }
+
         _outputVE = uiDocument.rootVisualElement.Q<VisualElement>(outputElementName);
+        if (_outputVE == null)
+        {
+            Debug.LogError($"ConsoleController: Could not find VisualElement '{outputElementName}' under UIDocument root.");
+            return;
+        }
 
-        // 1) Apply the RenderTexture as a background image
-        _outputVE.style.backgroundImage =
-            new StyleBackground(Background.FromRenderTexture(renderTexture));
+        // Always (re)bind the current RenderTexture
+        BindRenderTextureToOutput();
 
-        // 2) PREVENT SCALING: Set ScaleMode to 'None' (ScaleAndCrop with backgroundSize fixes the ratio)
-        _outputVE.style.unityBackgroundScaleMode = ScaleMode.ScaleAndCrop;
-
-        // 3) 1:1 PIXEL RATIO: Force the background to match the texture's actual dimensions
-        // This prevents the UI from stretching the image when the container grows.
-        _outputVE.style.backgroundSize = new BackgroundSize(renderTexture.width, renderTexture.height);
-
-        // 4) ANCHOR TOP-LEFT: Ensure the texture doesn't center itself
-        _outputVE.style.backgroundPositionX = new BackgroundPosition(BackgroundPositionKeyword.Left);
-        _outputVE.style.backgroundPositionY = new BackgroundPosition(BackgroundPositionKeyword.Top);
-
-        // 5) FILL EXCESS: Set the container background to black for any space outside the texture
-        _outputVE.style.backgroundColor = Color.black;
+        if (_uiHooked) return;
+        _uiHooked = true;
 
         // Make console focusable
         _outputVE.focusable = true;
@@ -167,13 +205,123 @@ public class ConsoleController : MonoBehaviour
             evt.StopPropagation();
         });
 
+        // Recompute rows/cols when this element's geometry changes (window resize)
+        _outputVE.RegisterCallback<GeometryChangedEvent>(OnOutputGeometryChanged);
+
         // Bind mouse listener to this VisualElement
-        mouseListener.Bind(_outputVE);
-        
-        Debug.Log($"[UI Check] Texture: {renderTexture.width}x{renderTexture.height} (Ratio: {(float)renderTexture.width/renderTexture.height:F2})");
-        Debug.Log($"[UI Check] Element: {_outputVE.resolvedStyle.width}x{_outputVE.resolvedStyle.height} (Ratio: {_outputVE.resolvedStyle.width/_outputVE.resolvedStyle.height:F2})");
+        if (mouseListener != null)
+            mouseListener.Bind(_outputVE);
+
         // NOTE: handlers were already added in Start(); don't double-add here.
     }
+
+
+    private void BindRenderTextureToOutput()
+    {
+        if (_outputVE == null || renderTexture == null) return;
+
+        // 1) Apply the RenderTexture as a background image
+        _outputVE.style.backgroundImage =
+            new StyleBackground(Background.FromRenderTexture(renderTexture));
+
+        // 2) Prevent scaling (we explicitly set backgroundSize to the texture pixels)
+        _outputVE.style.unityBackgroundScaleMode = ScaleMode.ScaleAndCrop;
+
+        // 3) 1:1 pixel ratio for the background (no stretch)
+        _outputVE.style.backgroundSize = new BackgroundSize(renderTexture.width, renderTexture.height);
+
+        // 4) Anchor top-left
+        _outputVE.style.backgroundPositionX = new BackgroundPosition(BackgroundPositionKeyword.Left);
+        _outputVE.style.backgroundPositionY = new BackgroundPosition(BackgroundPositionKeyword.Top);
+
+        // 5) Fill any excess with black
+        _outputVE.style.backgroundColor = Color.black;
+    }
+
+    private void OnOutputGeometryChanged(GeometryChangedEvent evt)
+    {
+        if (!autoFitToWindow) return;
+        if (_outputVE == null || renderTexture == null) return;
+
+        // Debounce: geometry can fire multiple times during a resize drag.
+        if (_autoFitRoutine != null)
+            StopCoroutine(_autoFitRoutine);
+
+        _autoFitRoutine = StartCoroutine(AutoFitAfterDelay());
+    }
+
+    private IEnumerator AutoFitAfterDelay()
+    {
+        // Wait a frame so resolvedStyle settles.
+        yield return null;
+
+        if (geometryPollDelay > 0f)
+            yield return new WaitForSeconds(geometryPollDelay);
+
+        _autoFitRoutine = null;
+        ApplyAutoFitFromElement();
+    }
+
+    private void ApplyAutoFitFromElement()
+    {
+        if (_outputVE == null || renderTexture == null) return;
+
+        float w = _outputVE.resolvedStyle.width;
+        float h = _outputVE.resolvedStyle.height;
+        if (w <= 1f || h <= 1f) return;
+
+        // Current pixels-per-cell based on the RenderTexture and the configured viewport.
+        // (If lockGlyphPixelSize is enabled, these should be stable.)
+        float pxPerCol = Mathf.Max(1f, (float)renderTexture.width / Mathf.Max(1, viewportWidth));
+        float pxPerRow = Mathf.Max(1f, (float)renderTexture.height / Mathf.Max(1, viewportHeight));
+
+        int desiredCols = Mathf.FloorToInt(w / pxPerCol);
+        int desiredRows = Mathf.FloorToInt(h / pxPerRow);
+
+        desiredCols = Mathf.Clamp(desiredCols, minViewportWidth, maxViewportWidth);
+        desiredRows = Mathf.Clamp(desiredRows, minViewportHeight, maxViewportHeight);
+
+        if (desiredCols == viewportWidth && desiredRows == viewportHeight)
+            return;
+
+        ResizeViewport(desiredCols, desiredRows);
+    }
+
+    private void ResizeViewport(int newCols, int newRows)
+    {
+        newCols = Mathf.Max(1, newCols);
+        newRows = Mathf.Max(1, newRows);
+
+        if (newCols == viewportWidth && newRows == viewportHeight)
+            return;
+
+        // 1. Store the intended top-left anchors before changing dimensions
+        int targetVerticalScroll = verticalScroll;
+        int targetHorizontalScroll = horizontalScroll;
+
+        viewportWidth = newCols;
+        viewportHeight = newRows;
+
+        // 2. Keep cursor in bounds (Standard logic)
+        cursorRow = Mathf.Clamp(cursorRow, 0, Mathf.Max(0, lines.Count - 1));
+        visibleCursorCol = Mathf.Clamp(visibleCursorCol, 0, GetLineLength(cursorRow));
+        cursorCol = visibleCursorCol;
+
+        // 3. Rebuild grid + camera + render texture
+        Generate();
+
+        // 4. Rebind new RenderTexture to UI Toolkit element
+        BindRenderTextureToOutput();
+
+        // 5. CLAMP the scroll values to the new viewport limits 
+        // instead of calling AdjustScrollToCursor() which snaps to the cursor.
+        verticalScroll = Mathf.Clamp(targetVerticalScroll, 0, Mathf.Max(0, lines.Count - 1));
+        horizontalScroll = Mathf.Max(0, targetHorizontalScroll);
+
+        UpdateConsole();
+        UpdateCursor();
+    }
+
 
     // In ConsoleController.cs
     public void BringToFront() // Changed to public so manipulators can call it
@@ -402,15 +550,27 @@ public class ConsoleController : MonoBehaviour
 
     public RenderTexture CreateRenderTexture(Camera camera, int renderTextureWidth)
     {
+        // Legacy helper: width-driven, height inferred from camera aspect.
         float aspectRatio = camera.aspect;
-        int renderTextureHeight = Mathf.RoundToInt(renderTextureWidth / aspectRatio); // Calculate height based on aspect ratio
-        RenderTexture renderTexture = new RenderTexture(renderTextureWidth, renderTextureHeight, 24);
-        renderTexture.name = "CameraRenderTexture"; // Set a name for the RenderTexture
-        renderTexture.antiAliasing = Mathf.Max(1, QualitySettings.antiAliasing); // Use the camera's anti-aliasing settings or default to 1
-        renderTexture.filterMode = FilterMode.Bilinear; // You can adjust the filter mode as needed
-        camera.targetTexture = renderTexture;
-        return renderTexture;
+        int renderTextureHeight = Mathf.RoundToInt(renderTextureWidth / Mathf.Max(0.0001f, aspectRatio));
+        return CreateRenderTextureExact(camera, renderTextureWidth, renderTextureHeight);
     }
+
+    public RenderTexture CreateRenderTextureExact(Camera camera, int renderTextureWidth, int renderTextureHeight)
+    {
+        renderTextureWidth = Mathf.Max(1, renderTextureWidth);
+        renderTextureHeight = Mathf.Max(1, renderTextureHeight);
+
+        RenderTexture rt = new RenderTexture(renderTextureWidth, renderTextureHeight, 24);
+        rt.name = "ConsoleRenderTexture";
+        rt.antiAliasing = Mathf.Max(1, QualitySettings.antiAliasing);
+        rt.filterMode = FilterMode.Bilinear;
+        rt.wrapMode = TextureWrapMode.Clamp;
+
+        camera.targetTexture = rt;
+        return rt;
+    }
+
 
     private static void SetLayerRecursively(GameObject go, int layer)
     {
@@ -493,8 +653,31 @@ public class ConsoleController : MonoBehaviour
 
         SetCamera(camera, gridMinX, gridMaxY, gridMaxX, gridMinY);
 
-        int textureWidth = 1000;
-        renderTexture = CreateRenderTexture(camera, textureWidth);
+        // Release old RenderTexture (prevents leaks during viewport rebuilds)
+        if (renderTexture != null)
+        {
+            try { renderTexture.Release(); } catch { }
+            Destroy(renderTexture);
+            renderTexture = null;
+        }
+
+        // RenderTexture sizing:
+        // - If lockGlyphPixelSize is enabled, keep each cell the same pixel size by scaling the RT with rows/cols.
+        // - Otherwise, fall back to a fixed width and let height be inferred from camera aspect.
+        if (lockGlyphPixelSize)
+        {
+            int rtW = viewportWidth * glyphPixelWidth;
+            int rtH = viewportHeight * glyphPixelHeight;
+
+            // IMPORTANT: To avoid padding/cropping, rtW/rtH should match the camera aspect set by SetCamera.
+            // Default glyphPixelWidth/glyphPixelHeight (12x20) matches CELL_X/CELL_Y (0.6).
+            renderTexture = CreateRenderTextureExact(camera, rtW, rtH);
+        }
+        else
+        {
+            int textureWidth = 1000;
+            renderTexture = CreateRenderTexture(camera, textureWidth);
+        }
     }
 
     public Bounds GetBounds()
@@ -1259,6 +1442,14 @@ public class ConsoleController : MonoBehaviour
 
         // worldBound is in panel space (for runtime UI Toolkit)
         return _outputVE.worldBound.Contains(panelPos);
+    }
+
+    private int GetLineLength(int row)
+    {
+        if (row < 0 || row >= lines.Count)
+            return 0;
+
+        return lines[row]?.Length ?? 0;
     }
 
     void Update()
