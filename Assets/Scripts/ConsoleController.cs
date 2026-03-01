@@ -64,11 +64,13 @@ public class ConsoleController : MonoBehaviour
     [Tooltip("If enabled, the RenderTexture will be resized so each glyph cell keeps a constant pixel size when rows/cols change.")]
     public bool lockGlyphPixelSize = true;
 
+    public int glyphPixelScale = 3;
+
     [Tooltip("RenderTexture pixels per glyph cell (X). Should roughly match CELL_X / CELL_Y ratio to avoid padding.")]
-    [Min(1)] public int glyphPixelWidth = 12;
+    [Min(1)] public int glyphPixelWidth = 3;
 
     [Tooltip("RenderTexture pixels per glyph cell (Y). Should roughly match CELL_X / CELL_Y ratio to avoid padding.")]
-    [Min(1)] public int glyphPixelHeight = 20;
+    [Min(1)] public int glyphPixelHeight = 5;
 
     private Coroutine _autoFitRoutine;
     private bool _uiHooked;
@@ -666,8 +668,8 @@ public class ConsoleController : MonoBehaviour
         // - Otherwise, fall back to a fixed width and let height be inferred from camera aspect.
         if (lockGlyphPixelSize)
         {
-            int rtW = viewportWidth * glyphPixelWidth;
-            int rtH = viewportHeight * glyphPixelHeight;
+            int rtW = viewportWidth * glyphPixelWidth * glyphPixelScale;
+            int rtH = viewportHeight * glyphPixelHeight * glyphPixelScale;
 
             // IMPORTANT: To avoid padding/cropping, rtW/rtH should match the camera aspect set by SetCamera.
             // Default glyphPixelWidth/glyphPixelHeight (12x20) matches CELL_X/CELL_Y (0.6).

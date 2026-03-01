@@ -327,6 +327,21 @@ PrefabInstance:
     serializedVersion: 3
     m_TransformParent: {fileID: 0}
     m_Modifications:
+    - target: {fileID: 3960482710183596606, guid: 56c181bbe6e82f44786bc3357fcc0cfe,
+        type: 3}
+      propertyPath: glyphPixelScale
+      value: 2
+      objectReference: {fileID: 0}
+    - target: {fileID: 3960482710183596606, guid: 56c181bbe6e82f44786bc3357fcc0cfe,
+        type: 3}
+      propertyPath: glyphPixelWidth
+      value: 6
+      objectReference: {fileID: 0}
+    - target: {fileID: 3960482710183596606, guid: 56c181bbe6e82f44786bc3357fcc0cfe,
+        type: 3}
+      propertyPath: glyphPixelHeight
+      value: 10
+      objectReference: {fileID: 0}
     - target: {fileID: 4158335499215792939, guid: 56c181bbe6e82f44786bc3357fcc0cfe,
         type: 3}
       propertyPath: m_RootOrder
@@ -390,7 +405,7 @@ PrefabInstance:
     - target: {fileID: 4850370124641405063, guid: 56c181bbe6e82f44786bc3357fcc0cfe,
         type: 3}
       propertyPath: m_IsActive
-      value: 0
+      value: 1
       objectReference: {fileID: 0}
     - target: {fileID: 4977050979407078594, guid: 56c181bbe6e82f44786bc3357fcc0cfe,
         type: 3}
@@ -4454,6 +4469,7 @@ MonoBehaviour:
   maxViewportWidth: 300
   maxViewportHeight: 120
   lockGlyphPixelSize: 1
+  glyphPixelScale: 3
   glyphPixelWidth: 12
   glyphPixelHeight: 20
   isHighlighting: 0
@@ -4556,6 +4572,7 @@ MonoBehaviour:
   maxViewportWidth: 300
   maxViewportHeight: 120
   lockGlyphPixelSize: 1
+  glyphPixelScale: 3
   glyphPixelWidth: 12
   glyphPixelHeight: 20
   isHighlighting: 0
@@ -4603,7 +4620,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!1 &5178671490675206466
 GameObject:
   m_ObjectHideFlags: 0
