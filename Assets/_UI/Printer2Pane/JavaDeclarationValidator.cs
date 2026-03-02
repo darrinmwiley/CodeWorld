@@ -12,13 +12,14 @@ public class JavaDeclarationValidator : MonoBehaviour
     public UIDocument uiDocument;
     
     [Header("Highlighter")]
-    [Tooltip("Assign the ManualSyntaxHighlighter attached to the Output Console")]
     public ManualSyntaxHighlighter outputHighlighter;
+
+    [Header("Printer System")]
+    public VariablePrinter printer;
 
     [Header("Settings")]
     [SerializeField] private int maxCharactersPerLine = 40; 
 
-    // Colors for the Output Console
     private Color errorColor = Color.red;
     private Color successColor = Color.white;
 
@@ -32,9 +33,6 @@ public class JavaDeclarationValidator : MonoBehaviour
 
     private void ValidateInput()
     {
-        // We do NOT touch the inputHighlighter here. 
-        // The Input Console's prefab handles its own Java highlighting.
-
         string code = string.Join("\n", inputConsole.lines).Trim();
         
         if (string.IsNullOrEmpty(code))
@@ -43,25 +41,18 @@ public class JavaDeclarationValidator : MonoBehaviour
             return;
         }
 
-        // 1. Semicolon Check
         if (!code.EndsWith(";"))
         {
-            LogMessage("Error: Missing semicolon ';' at the end of the statement.", errorColor);
+            LogMessage("Error: Missing semicolon ';' at the end.", errorColor);
             return;
         }
 
-        // 2. Logic Parsing
         string cleanCode = code.TrimEnd(';').Trim();
         string[] assignmentParts = cleanCode.Split('=');
 
-        if (assignmentParts.Length > 2)
+        if (assignmentParts.Length != 2)
         {
-            LogMessage("Error: Extraneous '=' found. Only one assignment allowed.", errorColor);
-            return;
-        }
-        if (assignmentParts.Length < 2)
-        {
-            LogMessage("Error: Missing assignment operator '='.", errorColor);
+            LogMessage("Error: Invalid assignment format.", errorColor);
             return;
         }
 
@@ -78,29 +69,26 @@ public class JavaDeclarationValidator : MonoBehaviour
         string type = leftParts[0];
         string name = leftParts[1];
 
-        // 3. Type & Reserved Word Validation
         string[] supportedTypes = { "int", "boolean", "double" };
         if (!supportedTypes.Contains(type))
         {
-            LogMessage($"Error: Unsupported type '{type}'. Use 'int', 'double', or 'boolean'.", errorColor);
+            LogMessage($"Error: Unsupported type '{type}'.", errorColor);
             return;
         }
 
-        string[] reserved = { "int", "boolean", "double", "if", "else", "for", "while", "class", "true", "false", "void" };
-        if (reserved.Contains(name))
-        {
-            LogMessage($"Error: '{name}' is a reserved Java keyword.", errorColor);
-            return;
-        }
-
-        // 4. Value Compatibility
         if (!IsValidValue(type, val))
         {
-            LogMessage($"Error: Value '{val}' is incompatible with type '{type}'.", errorColor);
+            LogMessage($"Error: Value '{val}' is not a valid {type}.", errorColor);
             return;
         }
 
+        // Success Path
         LogMessage($"Success: '{name}' is a valid {type} declaration.", successColor);
+
+        if (printer != null)
+        {
+            printer.PrintShape(type);
+        }
     }
 
     private bool IsValidValue(string type, string val)
@@ -114,35 +102,20 @@ public class JavaDeclarationValidator : MonoBehaviour
         }
     }
 
-    /// <summary>
-    /// Logs a message to the output console using plain text 
-    /// and uses the Manual Highlighter to apply colors.
-    /// </summary>
     private void LogMessage(string msg, Color color)
     {
-        // Clear previous state
         outputConsole.lines.Clear();
-        if (outputHighlighter != null)
-        {
-            outputHighlighter.Clear();
-        }
+        if (outputHighlighter != null) outputHighlighter.Clear();
 
-        // Wrap the text
         List<string> wrappedLines = WrapText(msg);
 
-        // Add plain text to the console and register color ranges
         for (int i = 0; i < wrappedLines.Count; i++)
         {
             outputConsole.lines.Add(wrappedLines[i]);
-            
             if (outputHighlighter != null)
-            {
-                // Paint the entire line the target color
                 outputHighlighter.AddRange(i, 0, wrappedLines[i].Length, color);
-            }
         }
 
-        // Force the console to redraw
         outputConsole.UpdateConsole();
     }
 
@@ -161,16 +134,10 @@ public class JavaDeclarationValidator : MonoBehaviour
                     lines.Add(currentLine.ToString().TrimEnd());
                     currentLine.Clear();
                 }
-                currentLine.Append(word + " ");
             }
-            else
-            {
-                currentLine.Append(word + " ");
-            }
+            currentLine.Append(word + " ");
         }
-        if (currentLine.Length > 0) 
-            lines.Add(currentLine.ToString().TrimEnd());
-
+        if (currentLine.Length > 0) lines.Add(currentLine.ToString().TrimEnd());
         return lines;
     }
 }
