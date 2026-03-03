@@ -1,8 +1,14 @@
 using UnityEngine;
 using System.Collections;
+using UnityEngine.Events;
 
 public class VariablePrinter : MonoBehaviour
 {
+    [Header("UI Window")]
+    public Draggable2PaneWindow printerWindow;
+    public ClickListener clickListener;
+    public UnityEvent OnPrinterClicked;
+
     [Header("Shape Prototypes")]
     public GameObject Square;   // int
     public GameObject Triangle; // boolean
@@ -23,6 +29,30 @@ public class VariablePrinter : MonoBehaviour
         if (Rect) Rect.SetActive(false);
     }
 
+    private void Start()
+    {
+        // Add the click callback to open the UI
+        if (clickListener != null)
+        {
+            clickListener.AddClickHandler(OnPrinterPress);
+        }
+    }
+
+    /// <summary>
+    /// Opens the 2-Pane Window when the printer is clicked.
+    /// </summary>
+    public void OnPrinterPress()
+    {
+        if (printerWindow != null)
+        {
+            printerWindow.ShowWindow();
+            OnPrinterClicked?.Invoke();
+        }
+    }
+
+    /// <summary>
+    /// Called by the JavaDeclarationValidator when a success occurs.
+    /// </summary>
     public void PrintShape(string type)
     {
         GameObject proto = null;
