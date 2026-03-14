@@ -2,11 +2,10 @@ using UnityEngine;
 using System.Collections;
 using UnityEngine.Events;
 
-public class VariablePrinter : MonoBehaviour
+public class VariablePrinter : BaseClickable
 {
     [Header("UI Window")]
     public Draggable2PaneWindow printerWindow;
-    public ClickListener clickListener;
     public UnityEvent OnPrinterClicked;
 
     [Header("Shape Prototypes")]
@@ -19,29 +18,21 @@ public class VariablePrinter : MonoBehaviour
     
     private Collider printerCollider;
 
-    private void Awake()
+    protected override void Awake()
     {
+        // Run BaseClickable setup first
+        base.Awake();
+
         printerCollider = GetComponent<Collider>();
         
-        // Hide prototypes on start
+        // Hide prototypes
         if (Square) Square.SetActive(false);
         if (Triangle) Triangle.SetActive(false);
         if (Rect) Rect.SetActive(false);
     }
 
-    private void Start()
-    {
-        // Add the click callback to open the UI
-        if (clickListener != null)
-        {
-            clickListener.AddClickHandler(OnPrinterPress);
-        }
-    }
-
-    /// <summary>
-    /// Opens the 2-Pane Window when the printer is clicked.
-    /// </summary>
-    public void OnPrinterPress()
+    // Overriding the base click handler
+    protected override void HandleClick()
     {
         if (printerWindow != null)
         {
@@ -50,9 +41,6 @@ public class VariablePrinter : MonoBehaviour
         }
     }
 
-    /// <summary>
-    /// Called by the JavaDeclarationValidator when a success occurs.
-    /// </summary>
     public void PrintShape(string type)
     {
         GameObject proto = null;
@@ -66,24 +54,22 @@ public class VariablePrinter : MonoBehaviour
 
     private IEnumerator SpawnAndPush(GameObject proto)
     {
-        // 1. Create copy as child of Printer for perfect alignment
-        GameObject copy = Instantiate(proto, proto.transform.position, proto.transform.rotation, this.transform);
+        Debug.Log("Starting to print shape: " + proto.name);
+        // Spawn in World Space to preserve original Prefab scale
+        GameObject copy = Instantiate(proto, proto.transform.position, proto.transform.rotation);
         copy.SetActive(true);
 
         Collider shapeCol = copy.GetComponent<Collider>();
         
-        // 2. Travel in -Y parent space (Blender Forward)
-        // We modify the Y component of the localPosition vector
+        // Move in the direction of the Printer's negative Y axis
+        Vector3 pushDirection = -transform.up;
+
         while (shapeCol != null && printerCollider.bounds.Intersects(shapeCol.bounds))
         {
-            Vector3 currentLocalPos = copy.transform.localPosition;
-            currentLocalPos.y -= pushSpeed * Time.deltaTime; 
-            copy.transform.localPosition = currentLocalPos;
-
+            copy.transform.position += pushDirection * pushSpeed * Time.deltaTime;
             yield return null;
         }
 
-        // Object remains a child of the printer as requested
         Debug.Log($"{proto.name} has cleared the printer bounds.");
     }
 }
