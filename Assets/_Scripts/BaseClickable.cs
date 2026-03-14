@@ -34,6 +34,5 @@ public class BaseClickable : MonoBehaviour
 
     protected virtual void HandleClick()
     {
-        Debug.Log($"{gameObject.name} clicked!");
     }
 }
