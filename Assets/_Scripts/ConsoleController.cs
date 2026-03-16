@@ -206,7 +206,6 @@ public class ConsoleController : MonoBehaviour
         // Click inside console → focus this console (and defocus others)
         _outputVE.RegisterCallback<PointerDownEvent>(evt =>
         {
-            Debug.Log("pointer down");
             if (evt.button != (int)MouseButton.LeftMouse) return;
 
             FocusThisConsole();
@@ -336,7 +335,6 @@ public class ConsoleController : MonoBehaviour
     // In ConsoleController.cs
     public void BringToFront() // Changed to public so manipulators can call it
     {
-        Debug.Log("bringing to front");
         if (_outputVE == null || uiDocument == null) return;
 
         // 1. Internal hierarchy reordering (standard UI Toolkit)

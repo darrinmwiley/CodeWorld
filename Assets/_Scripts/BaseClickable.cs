@@ -5,30 +5,38 @@ using UnityEngine;
 [RequireComponent(typeof(ClickListener))]
 [RequireComponent(typeof(Outline))]
 [RequireComponent(typeof(OutlineOnLook))]
+[RequireComponent(typeof(MeshCollider))] // Ensures a MeshCollider exists
 public class BaseClickable : MonoBehaviour
 {
     protected LookListener lookListener;
     protected ClickListener clickListener;
     protected OutlineOnLook outlineOnLook;
     protected Outline outline;
+    protected MeshCollider meshCollider;
 
     protected virtual void Awake()
     {
-        // Grab references
+        // 1. Get references
         lookListener = GetComponent<LookListener>();
         clickListener = GetComponent<ClickListener>();
         outlineOnLook = GetComponent<OutlineOnLook>();
         outline = GetComponent<Outline>();
+        meshCollider = GetComponent<MeshCollider>();
+
+        // 2. Set MeshCollider to Convex by default
+        meshCollider.convex = true;
+
+        // 3. Ensure outline starts disabled so it doesn't glow until you look at it
         outline.enabled = false;
 
-        // Link OutlineOnLook to the other components so it knows what to toggle
+        // 4. Wire OutlineOnLook to the listeners and the outline component
         outlineOnLook.lookListener = lookListener;
         outlineOnLook.outline = outline;
 
-        // Link ClickListener to LookListener so clicks only work while looking
+        // 5. Wire ClickListener to the LookListener
         clickListener.lookListener = lookListener;
 
-        // Register our click handler
+        // 6. Register the default click handler
         clickListener.AddClickHandler(HandleClick);
     }
 

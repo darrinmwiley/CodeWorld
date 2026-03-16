@@ -87,7 +87,8 @@ public class JavaDeclarationValidator : MonoBehaviour
 
         if (printer != null)
         {
-            printer.PrintShape(type);
+            // Now passing both the type and the value string to the printer
+            printer.PrintShape(type, val);
         }
     }
 

@@ -43,6 +43,11 @@ public class LineController : MonoBehaviour
     private const string BaseObjectName = "Line_Base";
     private const string TransitionObjectName = "Line_Transition";
 
+    // Add this to LineController.cs
+    public bool IsTransitionComplete => !isTransitioning;
+
+    public Color CurrentColor => color2;
+
     private void Start()
     {
         EnsureMeshObjects();
@@ -328,8 +333,6 @@ public class LineController : MonoBehaviour
         mesh.RecalculateBounds();
     }
 
-    
-
     private void BuildTubeMesh(Mesh mesh, List<Vector3> centers, float width, int sides, float rotationDegrees)
     {
         int ringCount = centers.Count;
@@ -458,6 +461,32 @@ public class LineController : MonoBehaviour
         if (transitionCoroutine != null) StopCoroutine(transitionCoroutine);
         if (meshA != null) { if (Application.isPlaying) Destroy(meshA); else DestroyImmediate(meshA); }
         if (meshB != null) { if (Application.isPlaying) Destroy(meshB); else DestroyImmediate(meshB); }
+    }
+
+    /// <summary>
+    /// Updates the colors used for the line transition.
+    /// </summary>
+    public void UpdateLineColors(Color newColor)
+    {
+        this.color2 = newColor;
+        
+        // This helper method re-applies the new colors to the MeshRenderers
+        ApplyRendererSettings(); 
+    }
+
+    /// <summary>
+    /// Stops any active transitions and clears the secondary mesh immediately.
+    /// </summary>
+    public void StopAndClearTransition()
+    {
+        if (transitionCoroutine != null)
+        {
+            StopCoroutine(transitionCoroutine);
+            transitionCoroutine = null;
+        }
+        
+        isTransitioning = false;
+        ClearMesh(meshB);
     }
 }
 

@@ -117,8 +117,5 @@ public class UIToolkitMouseListenerMono : MonoBehaviour
         float py = Mathf.Clamp01(1f - (localPos.y / h)); 
 
         currentMousePosition = new Vector2(px, py);
-
-        // DIAGNOSTIC LOG
-        Debug.Log($"[MouseListener] LocalPos: {localPos} | ContentRect: {w}x{h} | Normalized: {currentMousePosition}");
     }
 }
