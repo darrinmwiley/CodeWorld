@@ -32,11 +32,17 @@ public class SocketLineManager : MonoBehaviour
 
     private void OnItemPluggedIn(GameObject item)
     {
+        Debug.Log("item plugged in");
         ItemValue itemVal = item.GetComponent<ItemValue>();
-        if (itemVal == null) return;
-
-        // Use inspector-defined colors
-        Color targetColor = itemVal.ToBool() ? trueColor : falseColor;
+        Color targetColor = defaultColor;
+        if(itemVal.value == "true")
+        {
+            targetColor = trueColor;
+        }
+        else if(itemVal.value == "false")
+        {
+            targetColor = falseColor;
+        }
 
         lineController.UpdateLineColors(targetColor);
         lineController.RestartTransition();
