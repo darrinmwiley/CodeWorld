@@ -1,4 +1,3 @@
-
 using UnityEngine;
 
 public class HoldableItem : MonoBehaviour
@@ -10,16 +9,35 @@ public class HoldableItem : MonoBehaviour
     private bool isHeld = false;
     private Rigidbody rb;
     private Transform originalParent;
+    
+    // The "Source of Truth" for the item's size
+    private Vector3 originalWorldScale; 
     private ItemSocket currentSocket; 
+
+    // The target we are currently 'ghosting'
+    private Transform followTarget;
 
     void Awake()
     {
         rb = GetComponent<Rigidbody>();
+        // Capture how big the item is supposed to be in the world
+        originalWorldScale = transform.lossyScale;
     }
 
     void Start()
     {
         if (clickListener != null) clickListener.AddClickHandler(OnToggleHold);
+    }
+
+    // This runs after all movements, ensuring no jitter
+    void LateUpdate()
+    {
+        if (followTarget != null)
+        {
+            // We match the world position and rotation exactly
+            transform.position = followTarget.position;
+            transform.rotation = followTarget.rotation;
+        }
     }
 
     public void OnToggleHold()
@@ -30,7 +48,6 @@ public class HoldableItem : MonoBehaviour
 
     private void Pickup()
     {
-        // Notify the current socket we are leaving
         if (currentSocket != null)
         {
             currentSocket.NotifyUnsocket(gameObject);
@@ -40,30 +57,29 @@ public class HoldableItem : MonoBehaviour
         isHeld = true;
         originalParent = transform.parent;
 
-        // Parent to hold position - gem will inherit the scale of 'holdPosition'
-        transform.SetParent(holdPosition);
-        transform.localPosition = Vector3.zero;
-        transform.localRotation = Quaternion.identity;
+        // THE TRICK: Set parent to NULL (the scene root). 
+        // Objects at the root CANNOT shear, even with non-uniform scale.
+        transform.SetParent(null);
+        
+        // Tell the LateUpdate to start following the hand
+        followTarget = holdPosition;
+        
+        // Scale it to 50% of its natural world size
+        transform.localScale = originalWorldScale * 0.5f;
 
         if (rb) rb.isKinematic = true;
     }
 
     private void Drop()
     {
-        // Find all sockets in the scene
         ItemSocket[] sockets = FindObjectsOfType<ItemSocket>();
         ItemSocket focusedSocket = null;
 
         foreach (var s in sockets)
         {
-            if (s.isFocused)
-            {
-                focusedSocket = s;
-                break;
-            }
+            if (s.isFocused) { focusedSocket = s; break; }
         }
 
-        // Attempt to socket, otherwise drop
         if (focusedSocket != null && focusedSocket.TrySocket(gameObject))
         {
             SnapToSocket(focusedSocket);
@@ -79,16 +95,14 @@ public class HoldableItem : MonoBehaviour
         currentSocket = socket; 
         isHeld = false;
         
-        // Use snapPoint if it exists, otherwise default to the socket object itself
-        Transform targetParent = socket.snapPoint != null ? socket.snapPoint : socket.transform;
+        Transform targetAnchor = socket.snapPoint != null ? socket.snapPoint : socket.transform;
         
-        transform.SetParent(targetParent);
-        transform.localPosition = Vector3.zero;
-        transform.localRotation = Quaternion.identity;
-        transform.localScale = Vector3.one;
+        // Keep it at the root to prevent shearing from the socket's scale
+        transform.SetParent(null);
+        followTarget = targetAnchor;
         
-        // Note: We no longer set localScale here. 
-        // The gem will now match the scale of the targetParent automatically.
+        // Match the target's WORLD scale (it will now fit the stretched socket perfectly)
+        transform.localScale = targetAnchor.lossyScale;
 
         if (rb) rb.isKinematic = true;
     }
@@ -96,17 +110,34 @@ public class HoldableItem : MonoBehaviour
     private void PerformStandardDrop()
     {
         isHeld = false;
+        followTarget = null;
+        
+        // Return to the original hierarchy
         transform.SetParent(originalParent);
         
-        // When dropping back into the world, we want to ensure it doesn't 
-        // stay tiny or huge from the previous parent's scale.
-        // If your gems have a specific 'default' scale, you can set it here.
-        transform.localScale = Vector3.one; 
+        // Restore true visual size
+        SetWorldScale(originalWorldScale); 
 
         if (rb) 
         {
             rb.isKinematic = false;
-            rb.velocity = Vector3.zero; // Optional: stop the object's momentum
+            rb.velocity = Vector3.zero;
         }
+    }
+
+    // Helper to ensure scale is correct even when returning to a potentially scaled parent
+    private void SetWorldScale(Vector3 targetWorldScale)
+    {
+        if (transform.parent == null)
+        {
+            transform.localScale = targetWorldScale;
+            return;
+        }
+        Vector3 pScale = transform.parent.lossyScale;
+        transform.localScale = new Vector3(
+            targetWorldScale.x / pScale.x,
+            targetWorldScale.y / pScale.y,
+            targetWorldScale.z / pScale.z
+        );
     }
 }
