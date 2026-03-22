@@ -1,0 +1,7 @@
+<ui:UXML xmlns:ui="UnityEngine.UIElements" xmlns:uie="UnityEditor.UIElements" xsi="http://www.w3.org/2001/XMLSchema-instance" engine="UnityEngine.UIElements" editor="UnityEditor.UIElements" noNamespaceSchemaLocation="../../../UIElementsSchema/UIElements.xsd" editor-extension-mode="False">
+    <ui:VisualElement style="flex-grow: 1; background-color: rgb(123, 123, 123); width: 50px; min-height: auto;">
+        <ui:Button display-tooltip-when-elided="true" style="width: 40px; height: 40px; max-width: 40px; max-height: 40px; min-width: 40px; min-height: 40px;" />
+        <ui:Button display-tooltip-when-elided="true" style="width: 40px; height: 40px; max-width: 40px; max-height: 40px; min-width: 40px; min-height: 40px;" />
+        <ui:Button display-tooltip-when-elided="true" style="width: 40px; height: 40px; max-width: 40px; max-height: 40px; min-width: 40px; min-height: 40px;" />
+    </ui:VisualElement>
+</ui:UXML>

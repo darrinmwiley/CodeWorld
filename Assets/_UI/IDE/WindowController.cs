@@ -3,15 +3,12 @@ using UnityEngine.UIElements;
 
 public class WindowContainerController : MonoBehaviour, IFocusable
 {
-    [Header("UI Document (The only one in scene)")]
     [SerializeField] private UIDocument _windowShell;
-
-    [Header("Sub-Controllers")]
-    [Tooltip("The controller for the inner toolbar and dynamic content.")]
+    [SerializeField] private MultiPaneWindowController _paneController;
     [SerializeField] private ToolbarWindowController _toolbarController;
 
     [Header("Window Settings")]
-    [SerializeField] private Vector2 _defaultSize = new Vector2(500, 400);
+    [SerializeField] private Vector2 _defaultSize = new Vector2(800, 600);
     [SerializeField] private bool _centerOnEnable = true;
 
     [Header("Cursor Sprites")]
@@ -22,7 +19,7 @@ public class WindowContainerController : MonoBehaviour, IFocusable
     public Vector2 hotSpot = new Vector2(16, 16);
 
     private VisualElement _outerWindow;
-    private VisualElement _contentSlot;
+    private VisualElement _frameSlot;
 
     void OnEnable()
     {
@@ -30,38 +27,44 @@ public class WindowContainerController : MonoBehaviour, IFocusable
 
         var root = _windowShell.rootVisualElement;
         
+        // This targets the top-level container in ResizableWindow.uxml
         _outerWindow = root.Q<VisualElement>("ResizableWindow");
-        _contentSlot = root.Q<VisualElement>("MainContent"); 
+        // This targets the unique slot we created for the content frame
+        _frameSlot = root.Q<VisualElement>("WindowFrameSlot"); 
 
-        if (_outerWindow != null && _contentSlot != null)
+        if (_outerWindow != null && _frameSlot != null)
         {
+            // Set initial window state
             _outerWindow.style.position = Position.Absolute;
-            _outerWindow.style.display = DisplayStyle.None; 
-            
-            _outerWindow.style.bottom = StyleKeyword.Null;
-            _outerWindow.style.right = StyleKeyword.Null;
             _outerWindow.style.width = _defaultSize.x;
             _outerWindow.style.height = _defaultSize.y;
+            _outerWindow.style.display = DisplayStyle.None; 
 
             if (_centerOnEnable)
                 _outerWindow.RegisterCallback<GeometryChangedEvent>(CenterWindow);
-            
-            SetupAllResizeZones();
 
-            // FIX: Initialize the toolbar hierarchy FIRST so the "Handle" is added to the tree
+            // 1. Initialize the Chain: Shell -> Toolbar -> MultiPane
             if (_toolbarController != null)
             {
-                _toolbarController.InitializeInParent(_contentSlot);
+                _toolbarController.InitializeInParent(_frameSlot);
+                
+                VisualElement innerSpace = _frameSlot.Q<VisualElement>("InsideSpace");
+                if (innerSpace != null && _paneController != null)
+                {
+                    _paneController.InitializeInParent(innerSpace);
+                }
             }
+            
+            // 2. Setup Resize Zones with Cursors
+            SetupAllResizeZones();
 
-            // NOW the handle can be found and the manipulator attached
+            // 3. Setup Drag Handle
             SetupHandle(root);
         }
     }
 
     private void SetupHandle(VisualElement root)
     {
-        // This search is recursive and will find the handle nested inside the toolbar
         var handle = root.Q<VisualElement>("Handle");
         if (handle != null)
         {
@@ -69,24 +72,6 @@ public class WindowContainerController : MonoBehaviour, IFocusable
                 FocusManager.Instance?.PushFocus(this);
             }));
         }
-        else
-        {
-            Debug.LogWarning("WindowContainerController: 'Handle' element not found after toolbar initialization.");
-        }
-    }
-
-    public void OnFocus() 
-    {
-        if (_outerWindow != null)
-        {
-            _outerWindow.style.display = DisplayStyle.Flex;
-            _outerWindow.BringToFront();
-        }
-    }
-
-    public void OnDefocus() 
-    {
-        if (_outerWindow != null) _outerWindow.style.display = DisplayStyle.None;
     }
 
     private void CenterWindow(GeometryChangedEvent evt)
@@ -104,22 +89,17 @@ public class WindowContainerController : MonoBehaviour, IFocusable
 
     private void SetupAllResizeZones()
     {
+        // Sides
         SetupZone("LeftBorderHoverZone", horizontalCursor, ResizeDirection.Left);
         SetupZone("RightBorderHoverZone", horizontalCursor, ResizeDirection.Right);
         SetupZone("TopBorderHoverZone", verticalCursor, ResizeDirection.Top);
         SetupZone("BottomBorderHoverZone", verticalCursor, ResizeDirection.Bottom);
-
-        SetupCorner("TopLeftHoverZone", diagonalRightCursor, ResizeDirection.TopLeft);
-        SetupCorner("BottomRightHoverZone", diagonalRightCursor, ResizeDirection.BottomRight);
-        SetupCorner("TopRightHoverZone", diagonalLeftCursor, ResizeDirection.TopRight);
-        SetupCorner("BottomLeftHoverZone", diagonalLeftCursor, ResizeDirection.BottomLeft);
-    }
-
-    private void SetupCorner(string name, Texture2D cursor, ResizeDirection dir)
-    {
-        var zone = _outerWindow.Q<VisualElement>(name);
-        if (zone != null) zone.BringToFront();
-        SetupZone(name, cursor, dir);
+        
+        // Corners
+        SetupZone("TopLeftHoverZone", diagonalRightCursor, ResizeDirection.TopLeft);
+        SetupZone("BottomRightHoverZone", diagonalRightCursor, ResizeDirection.BottomRight);
+        SetupZone("TopRightHoverZone", diagonalLeftCursor, ResizeDirection.TopRight);
+        SetupZone("BottomLeftHoverZone", diagonalLeftCursor, ResizeDirection.BottomLeft);
     }
 
     private void SetupZone(string zoneName, Texture2D cursor, ResizeDirection direction)
@@ -127,11 +107,27 @@ public class WindowContainerController : MonoBehaviour, IFocusable
         var zone = _outerWindow.Q<VisualElement>(zoneName);
         if (zone == null) return;
 
+        // Ensure the zone is on top so it can catch the cursor
+        zone.BringToFront();
+
+        // Add the resizing logic
         zone.AddManipulator(new UIResizableManipulator(_outerWindow, direction, () => {
             FocusManager.Instance?.PushFocus(this);
         }));
 
+        // Add the cursor feedback logic
         zone.RegisterCallback<PointerEnterEvent>(e => UnityEngine.Cursor.SetCursor(cursor, hotSpot, CursorMode.Auto));
         zone.RegisterCallback<PointerLeaveEvent>(e => UnityEngine.Cursor.SetCursor(null, Vector2.zero, CursorMode.Auto));
     }
+
+    public void OnFocus() 
+    { 
+        if (_outerWindow != null) 
+        {
+            _outerWindow.style.display = DisplayStyle.Flex; 
+            _outerWindow.BringToFront();
+        }
+    }
+
+    public void OnDefocus() => _outerWindow.style.display = DisplayStyle.None;
 }
