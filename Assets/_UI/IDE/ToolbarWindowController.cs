@@ -1,54 +1,34 @@
 using UnityEngine;
 using UnityEngine.UIElements;
 
-public class ToolbarWindowController : MonoBehaviour
+public class ToolbarWindowController : WindowComponent
 {
     [Header("Layout Assets")]
     [Tooltip("The UXML for the toolbar frame itself.")]
     [SerializeField] private VisualTreeAsset _toolbarLayoutAsset; 
 
-    [Tooltip("The UXML for the dynamic content inside the toolbar.")]
-    [SerializeField] private VisualTreeAsset _innerContentAsset; 
-
-    private VisualElement _toolbarRoot; 
-    private VisualElement _insideSpace; 
-
-    /// <summary>
-    /// Called by the WindowContainerController to inject this UI into the shell.
-    /// </summary>
-    public void InitializeInParent(VisualElement parentSlot)
+    public override void Initialize(VisualElement container, IBaseWindow root)
     {
-        if (_toolbarLayoutAsset == null || parentSlot == null) return;
+        if (_toolbarLayoutAsset == null || container == null) return;
 
-        parentSlot.Clear();
+        container.Clear();
 
         // Instantiate the Toolbar layout into the parent's slot
-        _toolbarRoot = _toolbarLayoutAsset.Instantiate();
-        _toolbarRoot.style.flexGrow = 1;
-        parentSlot.Add(_toolbarRoot);
+        var toolbarRoot = _toolbarLayoutAsset.Instantiate();
+        toolbarRoot.style.flexGrow = 1;
+        container.Add(toolbarRoot);
 
-        // Find the container for the 3rd level (dynamic content)
-        _insideSpace = _toolbarRoot.Q<VisualElement>("InsideSpace");
+        InitializeButtons(toolbarRoot);
 
-        if (_insideSpace != null)
+        // Setup the drag handle to move the top-level window via the generic interface
+        var handle = toolbarRoot.Q<VisualElement>("Handle");
+        if (handle != null && root != null)
         {
-            InitializeButtons(_toolbarRoot);
-            InitializeDynamicContent();
+            handle.AddManipulator(new UIDraggableManipulator(root.RootElement, root.FocusWindow));
         }
-    }
 
-    private void InitializeDynamicContent()
-    {
-        if (_insideSpace == null || _innerContentAsset == null) return;
-
-        _insideSpace.Clear();
-        
-        VisualElement content = _innerContentAsset.Instantiate();
-        content.style.flexGrow = 1;
-        content.style.width = Length.Percent(100);
-        content.style.height = Length.Percent(100);
-        
-        _insideSpace.Add(content);
+        // Recursively initialize sub-components (like the MultiPane into InsideSpace)
+        InitializeSubComponents(toolbarRoot, root);
     }
 
     private void InitializeButtons(VisualElement root)
