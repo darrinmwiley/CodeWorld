@@ -12,26 +12,20 @@ public struct WindowMapping
     public WindowComponent controller;
 }
 
-/// <summary>
-/// The supertype for any controller that injects UI into a window slot.
-/// Handles the recursive injection of child components.
-/// </summary>
 public abstract class WindowComponent : MonoBehaviour
 {
     [Header("Child Configuration")]
     [Tooltip("Map child controllers to specific VisualElement slots inside this component.")]
     [SerializeField] protected List<WindowMapping> _subComponents;
 
-    /// <summary>
-    /// The entry point for UI injection. 
-    /// 1. Instantiates its own UI into the provided container.
-    /// 2. Iterates through _subComponents to trigger their initialization.
-    /// </summary>
     public abstract void Initialize(VisualElement container, IBaseWindow root);
 
     /// <summary>
-    /// Finds the designated slots in the local UXML and tells the assigned child components to initialize themselves there.
+    /// Returns the minimum size required by this component. 
+    /// Defaults to zero; should be overridden by containers like MultiPane.
     /// </summary>
+    public virtual Vector2 GetMinimumSize() => Vector2.zero;
+
     protected void InitializeSubComponents(VisualElement localRoot, IBaseWindow root)
     {
         if (_subComponents == null) return;
@@ -45,10 +39,9 @@ public abstract class WindowComponent : MonoBehaviour
             {
                 map.controller.Initialize(slot, root);
             }
-            else
-            {
-                Debug.LogWarning($"[{gameObject.name}] Could not find slot '{map.slotName}' to inject {map.controller.gameObject.name}. Check UXML naming.");
-            }
         }
+
+        // After all children are initialized, tell the root to recalculate its min-size
+        root?.UpdateRootConstraints(GetMinimumSize());
     }
 }

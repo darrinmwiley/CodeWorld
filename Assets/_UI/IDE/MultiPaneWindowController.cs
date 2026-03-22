@@ -4,7 +4,6 @@ using UnityEngine.UIElements;
 public class MultiPaneWindowController : WindowComponent
 {
     [Header("Layout Assets")]
-    [Tooltip("The core 3-pane structural layout.")]
     [SerializeField] private VisualTreeAsset _layoutAsset;
 
     [Header("Constraint Settings")]
@@ -27,12 +26,10 @@ public class MultiPaneWindowController : WindowComponent
         if (container == null || _layoutAsset == null) return;
 
         container.Clear(); 
-        
         _root = _layoutAsset.Instantiate();
         _root.style.flexGrow = 1;
         container.Add(_root);
 
-        // Cache elements needed for resizing logic
         _leftPaneSlot = _root.Q<VisualElement>("LeftPane");
         _centerPane = _root.Q<VisualElement>("CenterPane");
         _topSlot = _root.Q<VisualElement>("Top");
@@ -40,8 +37,17 @@ public class MultiPaneWindowController : WindowComponent
         SetupVerticalResizer();
         SetupHorizontalResizer();
 
-        // Initialize all injected content (Tabs, Left Pane, Top Pane, Bottom Pane) configured in the Inspector
         InitializeSubComponents(_root, root);
+    }
+
+    public override Vector2 GetMinimumSize()
+    {
+        // Width is the left pane min width + some margin for center
+        float minW = _minLeftPaneWidth + 50f; 
+        // Height is the sum of Top + Bottom + Separator
+        float minH = _minTopPaneHeight + _minBottomPaneHeight + 10f;
+
+        return new Vector2(minW, minH);
     }
 
     private void SetupVerticalResizer()
@@ -49,16 +55,9 @@ public class MultiPaneWindowController : WindowComponent
         var verticalSep = _root.Q<VisualElement>("VerticalSeparator");
         if (verticalSep == null || _leftPaneSlot == null) return;
 
-        verticalSep.RegisterCallback<PointerEnterEvent>(e => {
-            if (horizontalCursor != null) UnityEngine.Cursor.SetCursor(horizontalCursor, hotSpot, CursorMode.Auto);
-        });
+        verticalSep.RegisterCallback<PointerEnterEvent>(e => UnityEngine.Cursor.SetCursor(horizontalCursor, hotSpot, CursorMode.Auto));
         verticalSep.RegisterCallback<PointerLeaveEvent>(e => UnityEngine.Cursor.SetCursor(null, Vector2.zero, CursorMode.Auto));
-
-        verticalSep.RegisterCallback<PointerDownEvent>(e => { 
-            verticalSep.CapturePointer(e.pointerId); 
-            e.StopPropagation(); 
-        });
-
+        verticalSep.RegisterCallback<PointerDownEvent>(e => { verticalSep.CapturePointer(e.pointerId); e.StopPropagation(); });
         verticalSep.RegisterCallback<PointerMoveEvent>(e => {
             if (!verticalSep.HasPointerCapture(e.pointerId)) return;
             float newWidth = _root.WorldToLocal(e.position).x - _leftPaneSlot.layout.x;
@@ -67,7 +66,6 @@ public class MultiPaneWindowController : WindowComponent
                 _leftPaneSlot.style.flexBasis = newWidth;
             }
         });
-
         verticalSep.RegisterCallback<PointerUpEvent>(e => verticalSep.ReleasePointer(e.pointerId));
     }
 
@@ -76,22 +74,13 @@ public class MultiPaneWindowController : WindowComponent
         var horizontalSep = _root.Q<VisualElement>("HorizontalSeparator");
         if (horizontalSep == null || _topSlot == null || _centerPane == null) return;
 
-        horizontalSep.RegisterCallback<PointerEnterEvent>(e => {
-            if (verticalCursor != null) UnityEngine.Cursor.SetCursor(verticalCursor, hotSpot, CursorMode.Auto);
-        });
+        horizontalSep.RegisterCallback<PointerEnterEvent>(e => UnityEngine.Cursor.SetCursor(verticalCursor, hotSpot, CursorMode.Auto));
         horizontalSep.RegisterCallback<PointerLeaveEvent>(e => UnityEngine.Cursor.SetCursor(null, Vector2.zero, CursorMode.Auto));
-
-        horizontalSep.RegisterCallback<PointerDownEvent>(e => { 
-            horizontalSep.CapturePointer(e.pointerId); 
-            e.StopPropagation(); 
-        });
-
+        horizontalSep.RegisterCallback<PointerDownEvent>(e => { horizontalSep.CapturePointer(e.pointerId); e.StopPropagation(); });
         horizontalSep.RegisterCallback<PointerMoveEvent>(e => {
             if (!horizontalSep.HasPointerCapture(e.pointerId)) return;
-
             Vector2 localMouse = _root.WorldToLocal(e.position);
             float newHeight = localMouse.y - _topSlot.layout.y;
-
             float totalHeight = _centerPane.resolvedStyle.height;
 
             if (newHeight > _minTopPaneHeight && (totalHeight - newHeight) > _minBottomPaneHeight) {
@@ -100,7 +89,6 @@ public class MultiPaneWindowController : WindowComponent
                 _topSlot.style.height = newHeight;
             }
         });
-
         horizontalSep.RegisterCallback<PointerUpEvent>(e => horizontalSep.ReleasePointer(e.pointerId));
     }
 }

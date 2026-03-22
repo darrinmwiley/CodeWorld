@@ -17,7 +17,6 @@ public class WindowContainerController : WindowComponent, IFocusable, IBaseWindo
     public Texture2D diagonalLeftCursor;
     public Vector2 hotSpot = new Vector2(16, 16);
 
-    // --- IBaseWindow Implementation ---
     public VisualElement RootElement { get; private set; }
     public void FocusWindow() => FocusManager.Instance?.PushFocus(this);
 
@@ -28,7 +27,6 @@ public class WindowContainerController : WindowComponent, IFocusable, IBaseWindo
         RootElement = _windowShell.rootVisualElement.Q<VisualElement>("ResizableWindow");
         if (RootElement == null) return;
 
-        // 1. Initial State Setup
         RootElement.style.position = Position.Absolute;
         RootElement.style.width = _defaultSize.x;
         RootElement.style.height = _defaultSize.y;
@@ -39,16 +37,12 @@ public class WindowContainerController : WindowComponent, IFocusable, IBaseWindo
             RootElement.RegisterCallback<GeometryChangedEvent>(CenterWindow);
         }
 
-        // 2. Setup Resize Boundaries
         SetupAllResizeZones();
-
-        // 3. Kick off the recursive self-assembly for any direct children (e.g., Toolbar into WindowFrameSlot)
         InitializeSubComponents(_windowShell.rootVisualElement, this);
     }
 
     public override void Initialize(VisualElement container, IBaseWindow root)
     {
-        // This handles edge-cases where the entire Shell needs to be injected into another massive system.
         if (RootElement != null && container != null)
         {
             container.Add(RootElement);
@@ -56,13 +50,40 @@ public class WindowContainerController : WindowComponent, IFocusable, IBaseWindo
         }
     }
 
+    public void UpdateRootConstraints(Vector2 minSize)
+    {
+        if (RootElement == null) return;
+
+        // Apply the reported minimums. 
+        // We ensure the window never shrinks below the combined needs of its children.
+        RootElement.style.minWidth = minSize.x;
+        RootElement.style.minHeight = minSize.y;
+    }
+
+    public override Vector2 GetMinimumSize()
+    {
+        Vector2 totalMin = new Vector2(200, 150); // Hard floor for the shell itself
+
+        foreach (var map in _subComponents)
+        {
+            if (map.controller == null) continue;
+            Vector2 childMin = map.controller.GetMinimumSize();
+            
+            // The shell's width is the widest child; height is additive if stacked
+            totalMin.x = Mathf.Max(totalMin.x, childMin.x);
+            totalMin.y = Mathf.Max(totalMin.y, childMin.y);
+        }
+
+        return totalMin;
+    }
+
     private void CenterWindow(GeometryChangedEvent evt)
     {
         VisualElement parent = RootElement.parent;
         if (parent != null)
         {
-            float newLeft = (parent.layout.width - _defaultSize.x) * 0.5f;
-            float newTop = (parent.layout.height - _defaultSize.y) * 0.5f;
+            float newLeft = (parent.layout.width - RootElement.layout.width) * 0.5f;
+            float newTop = (parent.layout.height - RootElement.layout.height) * 0.5f;
             RootElement.style.left = Mathf.Max(0, newLeft);
             RootElement.style.top = Mathf.Max(0, newTop);
         }
@@ -75,7 +96,6 @@ public class WindowContainerController : WindowComponent, IFocusable, IBaseWindo
         SetupZone("RightBorderHoverZone", horizontalCursor, ResizeDirection.Right);
         SetupZone("TopBorderHoverZone", verticalCursor, ResizeDirection.Top);
         SetupZone("BottomBorderHoverZone", verticalCursor, ResizeDirection.Bottom);
-        
         SetupZone("TopLeftHoverZone", diagonalRightCursor, ResizeDirection.TopLeft);
         SetupZone("BottomRightHoverZone", diagonalRightCursor, ResizeDirection.BottomRight);
         SetupZone("TopRightHoverZone", diagonalLeftCursor, ResizeDirection.TopRight);
@@ -86,28 +106,17 @@ public class WindowContainerController : WindowComponent, IFocusable, IBaseWindo
     {
         var zone = RootElement.Q<VisualElement>(zoneName);
         if (zone == null) return;
-
         zone.BringToFront();
         zone.AddManipulator(new UIResizableManipulator(RootElement, direction, FocusWindow));
-
         zone.RegisterCallback<PointerEnterEvent>(e => UnityEngine.Cursor.SetCursor(cursor, hotSpot, CursorMode.Auto));
         zone.RegisterCallback<PointerLeaveEvent>(e => UnityEngine.Cursor.SetCursor(null, Vector2.zero, CursorMode.Auto));
     }
 
     public void OnFocus()
     {
-        if (RootElement != null)
-        {
-            RootElement.style.display = DisplayStyle.Flex;
-            RootElement.BringToFront();
-        }
+        RootElement.style.display = DisplayStyle.Flex;
+        RootElement.BringToFront();
     }
 
-    public void OnDefocus()
-    {
-        if (RootElement != null)
-        {
-            RootElement.style.display = DisplayStyle.None;
-        }
-    }
+    public void OnDefocus() => RootElement.style.display = DisplayStyle.None;
 }
