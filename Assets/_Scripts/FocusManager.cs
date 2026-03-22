@@ -7,39 +7,63 @@ public class FocusManager : MonoBehaviour
     public static FocusManager Instance { get; private set; }
     private Stack<IFocusable> _focusStack = new Stack<IFocusable>();
 
-    [Header("Player Reference")]
+    [Header("Player References")]
     public FirstPersonMovement playerMovement;
-
-    [Header("UI Reference")]
     public MonoBehaviour mainUIWindow; 
 
     private bool _manualCursorUnlock = false;
 
     private void Awake()
     {
-        if (Instance == null) Instance = this;
-        else Destroy(gameObject);
+        // Singleton setup
+        if (Instance == null)
+        {
+            Instance = this;
+            // Initialize global state before any Start() methods run
+            GameState.IsInUI = false;
+        }
+        else
+        {
+            Destroy(gameObject);
+        }
+    }
+
+    private void Start()
+    {
+        // FORCE the hardware to be consumed/locked at the very beginning.
+        // This prevents the "leak" where the mouse is free until the first dialog.
+        _manualCursorUnlock = false;
+        UpdateState(); 
     }
 
     private void Update()
     {
         bool hasUIOpen = _focusStack.Count > 0;
+        
+        // Sync global flag every frame
+        GameState.IsInUI = hasUIOpen;
 
-        // 1. TAB: Open UI
+        // Persistent enforcement: If UI is open, keep the mouse free.
+        // This beats other scripts trying to "snatch" the mouse back.
+        if (hasUIOpen || _manualCursorUnlock)
+        {
+            ApplyCursorImmediate(true);
+        }
+
+        // --- Input Handling ---
+
+        // 1. TAB: Open the main window
         if (Input.GetKeyDown(KeyCode.Tab) && !hasUIOpen)
         {
-            if (mainUIWindow != null)
+            IFocusable focusable = mainUIWindow?.GetComponent<IFocusable>();
+            if (focusable != null)
             {
-                IFocusable focusable = mainUIWindow.GetComponent<IFocusable>();
-                if (focusable != null)
-                {
-                    _manualCursorUnlock = false;
-                    PushFocus(focusable);
-                }
+                _manualCursorUnlock = false;
+                PushFocus(focusable);
             }
         }
         
-        // 2. ESCAPE: The problematic toggle in Builds
+        // 2. ESCAPE: Close UI or toggle free-look mouse
         else if (Input.GetKeyDown(KeyCode.Escape))
         {
             if (hasUIOpen)
@@ -54,7 +78,7 @@ public class FocusManager : MonoBehaviour
             }
         }
 
-        // 3. Re-consume mouse
+        // 3. Left Click: Re-lock if we were in manual free-mouse mode
         if (_manualCursorUnlock && Input.GetMouseButtonDown(0) && !hasUIOpen)
         {
             _manualCursorUnlock = false;
@@ -65,6 +89,7 @@ public class FocusManager : MonoBehaviour
     public void PushFocus(IFocusable focusable)
     {
         if (_focusStack.Count > 0 && _focusStack.Peek() == focusable) return;
+        
         _focusStack.Push(focusable);
         focusable.OnFocus();
         UpdateState();
@@ -82,53 +107,29 @@ public class FocusManager : MonoBehaviour
 
     private void UpdateState()
     {
-        bool hasUIOpen = _focusStack.Count > 0;
-        bool shouldFreeMouse = hasUIOpen || _manualCursorUnlock;
+        // "Busy" means we want the mouse visible and movement stopped
+        bool isBusy = (_focusStack.Count > 0 || _manualCursorUnlock);
+        
+        // Update the static state for FirstPersonLook
+        GameState.IsInUI = (_focusStack.Count > 0);
 
         if (playerMovement != null)
         {
-            playerMovement.movementLocked = shouldFreeMouse;
-            if (shouldFreeMouse) ResetPhysics();
+            playerMovement.movementLocked = isBusy;
         }
 
-        StopAllCoroutines();
-        StartCoroutine(ApplyCursorBuildSafe(shouldFreeMouse));
+        ApplyCursorImmediate(isBusy);
     }
 
-    private IEnumerator ApplyCursorBuildSafe(bool visible)
-    {
-        // 1. Wait for end of current frame
-        yield return new WaitForEndOfFrame();
-        
-        // 2. Apply state
-        Apply(visible);
-
-        // 3. CRITICAL FOR BUILDS: Wait one more frame and force it again.
-        // This prevents other scripts or the engine from "snatching" it back
-        // immediately after the Escape key is processed.
-        yield return null; 
-        Apply(visible);
-    }
-
-    private void Apply(bool visible)
+    private void ApplyCursorImmediate(bool visible)
     {
         UnityEngine.Cursor.visible = visible;
         UnityEngine.Cursor.lockState = visible ? CursorLockMode.None : CursorLockMode.Locked;
         
-        // Extra insurance for Windows/Mac builds
-        if (visible) 
+        // Standard secondary check for standalone builds
+        if (!visible)
         {
-            UnityEngine.Cursor.lockState = CursorLockMode.None;
-        }
-    }
-
-    private void ResetPhysics()
-    {
-        var rb = playerMovement.GetComponent<Rigidbody>();
-        if (rb != null)
-        {
-            rb.velocity = Vector3.zero;
-            rb.angularVelocity = Vector3.zero;
+            UnityEngine.Cursor.lockState = CursorLockMode.Locked;
         }
     }
 }

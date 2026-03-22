@@ -6,20 +6,22 @@ public class UIDraggableManipulator : PointerManipulator
 {
     private Vector2 _startMousePos;
     private Vector2 _startWindowPos;
-    private VisualElement _windowToMove;
-    private bool _isDragging;
+    private bool _active;
+    private VisualElement _targetWindow;
+    private Action _onPointerDown;
 
-    private readonly Action _bringToFrontAction;
-
-    public UIDraggableManipulator(VisualElement windowToMove, Action bringToFrontAction) 
-    { 
-        _windowToMove = windowToMove; 
-        _bringToFrontAction = bringToFrontAction;
-        _isDragging = false;
+    public UIDraggableManipulator(VisualElement targetWindow, Action onPointerDown = null)
+    {
+        _targetWindow = targetWindow;
+        _onPointerDown = onPointerDown;
+        _active = false;
     }
 
     protected override void RegisterCallbacksOnTarget()
     {
+        // Ensure the target element can intercept mouse/pointer events
+        target.pickingMode = PickingMode.Position;
+
         target.RegisterCallback<PointerDownEvent>(OnPointerDown);
         target.RegisterCallback<PointerMoveEvent>(OnPointerMove);
         target.RegisterCallback<PointerUpEvent>(OnPointerUp);
@@ -34,49 +36,35 @@ public class UIDraggableManipulator : PointerManipulator
 
     private void OnPointerDown(PointerDownEvent evt)
     {
-       if (_windowToMove == null) return;
+        if (_active) return;
 
-        _isDragging = true;
-        _startMousePos = evt.position;
-        _startWindowPos = new Vector2(_windowToMove.resolvedStyle.left, _windowToMove.resolvedStyle.top);
-
+        _startMousePos = (Vector2)evt.position;
+        _startWindowPos = new Vector2(_targetWindow.resolvedStyle.left, _targetWindow.resolvedStyle.top);
+        
+        _active = true;
         target.CapturePointer(evt.pointerId);
         
-        _bringToFrontAction.Invoke();
-
-        // Global reorder (Unrelated UIDocs)
-        // Find the UIDocument component in the scene that owns this panel
-        foreach (var uiDoc in UnityEngine.Object.FindObjectsByType<UIDocument>(FindObjectsSortMode.None))
-        {
-            if (uiDoc.rootVisualElement == _windowToMove.panel.visualTree)
-            {
-                // Simple increment or use a global manager to set the highest order
-                uiDoc.sortingOrder += 1; 
-                break;
-            }
-        }
-
-        evt.StopPropagation();
+        _onPointerDown?.Invoke();
     }
 
     private void OnPointerMove(PointerMoveEvent evt)
     {
-        if (!_isDragging || !target.HasPointerCapture(evt.pointerId)) return;
+        if (!_active || !target.HasPointerCapture(evt.pointerId)) return;
 
         Vector2 diff = (Vector2)evt.position - _startMousePos;
-
-        _windowToMove.style.left = _startWindowPos.x + diff.x;
-        _windowToMove.style.top = _startWindowPos.y + diff.y;
-
-        evt.StopPropagation();
+        
+        _targetWindow.style.left = _startWindowPos.x + diff.x;
+        _targetWindow.style.top = _startWindowPos.y + diff.y;
+        
+        evt.StopImmediatePropagation();
     }
 
     private void OnPointerUp(PointerUpEvent evt)
     {
-        if (!_isDragging || !target.HasPointerCapture(evt.pointerId)) return;
+        if (!_active || !target.HasPointerCapture(evt.pointerId)) return;
 
-        _isDragging = false;
+        _active = false;
         target.ReleasePointer(evt.pointerId);
-        evt.StopPropagation();
+        evt.StopImmediatePropagation();
     }
 }

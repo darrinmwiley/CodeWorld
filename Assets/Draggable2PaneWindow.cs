@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UIElements;
 
-// The ", IFocusable" here is the vital 'label' the FocusManager looks for.
 public class Draggable2PaneWindow : MonoBehaviour, IFocusable
 {
     private VisualElement _window;
@@ -20,34 +19,54 @@ public class Draggable2PaneWindow : MonoBehaviour, IFocusable
     public ConsoleController consoleA;
     public ConsoleController consoleB;
 
-    void OnEnable()
+    private void OnEnable()
     {
         var uiDoc = GetComponent<UIDocument>();
         if (uiDoc == null) return;
 
         var root = uiDoc.rootVisualElement;
-        _window = root.Q<VisualElement>("OuterBorder");
         
+        // Ensure the root container itself doesn't block the world
+        root.pickingMode = PickingMode.Ignore;
+
+        _window = root.Q<VisualElement>("OuterBorder");
         if (_window == null) return;
 
         _window.style.display = DisplayStyle.None;
+        _window.pickingMode = PickingMode.Position; 
+
+        // --- THE CLICK SHIELD ---
+        // This ensures ANY click anywhere on the window is consumed 
+        // so the FirstPersonLook script doesn't see a "Hardware Click".
+        _window.RegisterCallback<PointerDownEvent>(evt => {
+            evt.StopImmediatePropagation();
+        });
+
+        // Center the window on first show
         _window.RegisterCallback<GeometryChangedEvent>(OnInitialLayout);
 
+        // Logic to keep consoles on top
         Action bringToFront = () => {
             if (consoleA != null) consoleA.BringToFront();
             if (consoleB != null) consoleB.BringToFront();
         };
 
-        var dragHandle = root.Q<VisualElement>("DragHandle");
+        // Setup Drag Handle
+        var dragHandle = _window.Q<VisualElement>("DragHandle");
         if (dragHandle != null)
+        {
+            dragHandle.pickingMode = PickingMode.Position;
             dragHandle.AddManipulator(new UIDraggableManipulator(_window, bringToFront));
+        }
 
+        // Setup Resize Handles
         SetupHandle("LeftResize", horiz, ResizeDirection.Left, bringToFront);
         SetupHandle("RightResize", horiz, ResizeDirection.Right, bringToFront);
         SetupHandle("TopResize", vert, ResizeDirection.Top, bringToFront);
         SetupHandle("BottomResize", vert, ResizeDirection.Bottom, bringToFront);
         SetupHandle("BottomRightResize", diag1, ResizeDirection.BottomRight, bringToFront);
 
+        // Bind Panes to RenderTextures
         var panes = root.Query<VisualElement>("Content").ToList();
         if (panes.Count >= 1 && leftOrTopRenderTexture != null)
             panes[0].style.backgroundImage = new StyleBackground(Background.FromRenderTexture(leftOrTopRenderTexture));
@@ -59,10 +78,22 @@ public class Draggable2PaneWindow : MonoBehaviour, IFocusable
     {
         var handle = _window.Q<VisualElement>(name);
         if (handle == null) return;
+
+        handle.pickingMode = PickingMode.Position;
+        
+        // Ensure you have updated UIResizableManipulator to use worldPosition as well
         handle.AddManipulator(new UIResizableManipulator(_window, direction, bringToFront));
 
-        handle.RegisterCallback<PointerEnterEvent>(e => UnityEngine.Cursor.SetCursor(icon, hotSpot, CursorMode.ForceSoftware));
-        handle.RegisterCallback<PointerLeaveEvent>(e => UnityEngine.Cursor.SetCursor(null, Vector2.zero, CursorMode.Auto));
+        // Use explicit UnityEngine.Cursor to ensure icons show up correctly
+        handle.RegisterCallback<PointerEnterEvent>(e => 
+        {
+            UnityEngine.Cursor.SetCursor(icon, hotSpot, CursorMode.Auto);
+        });
+
+        handle.RegisterCallback<PointerLeaveEvent>(e => 
+        {
+            UnityEngine.Cursor.SetCursor(null, Vector2.zero, CursorMode.Auto);
+        });
     }
 
     private void OnInitialLayout(GeometryChangedEvent evt)
@@ -73,19 +104,25 @@ public class Draggable2PaneWindow : MonoBehaviour, IFocusable
         _window.UnregisterCallback<GeometryChangedEvent>(OnInitialLayout);
     }
 
-    // --- Public API for Printers/Buttons ---
+    // --- IFocusable Implementation ---
+
     public void ShowWindow() => FocusManager.Instance.PushFocus(this);
 
-    // --- IFocusable Implementation ---
     public void OnFocus()
     {
-        if (_window != null) _window.style.display = DisplayStyle.Flex;
+        if (_window == null) return;
+        _window.style.display = DisplayStyle.Flex;
+        
         if (consoleA != null) consoleA.BringToFront();
         if (consoleB != null) consoleB.BringToFront();
     }
 
     public void OnDefocus()
     {
-        if (_window != null) _window.style.display = DisplayStyle.None;
+        if (_window == null) return;
+        _window.style.display = DisplayStyle.None;
+        
+        // Clean up cursor icons if we close while hovering a handle
+        UnityEngine.Cursor.SetCursor(null, Vector2.zero, CursorMode.Auto);
     }
 }

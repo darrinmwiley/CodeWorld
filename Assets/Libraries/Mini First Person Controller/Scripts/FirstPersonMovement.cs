@@ -12,34 +12,39 @@ public class FirstPersonMovement : MonoBehaviour
     public KeyCode runningKey = KeyCode.LeftShift;
 
     Rigidbody rigidbody;
-    /// <summary> Functions to override movement speed. Will use the last added override. </summary>
     public List<System.Func<float>> speedOverrides = new List<System.Func<float>>();
     public bool movementLocked = false;
 
     void Awake()
     {
-        // Get the rigidbody on this.
         rigidbody = GetComponent<Rigidbody>();
     }
 
     void FixedUpdate()
     {
+        // 1. HANDLE LOCKING
         if(movementLocked)
+        {
+            // Kill velocity immediately so the player doesn't slide
+            if (rigidbody.velocity.sqrMagnitude > 0.001f)
+            {
+                rigidbody.velocity = new Vector3(0, rigidbody.velocity.y, 0);
+                rigidbody.angularVelocity = Vector3.zero;
+            }
             return;
-        // Update IsRunning from input.
-        IsRunning = canRun && Input.GetKey(runningKey);
+        }
 
-        // Get targetMovingSpeed.
+        // 2. NORMAL MOVEMENT
+        IsRunning = canRun && Input.GetKey(runningKey);
         float targetMovingSpeed = IsRunning ? runSpeed : speed;
+        
         if (speedOverrides.Count > 0)
         {
             targetMovingSpeed = speedOverrides[speedOverrides.Count - 1]();
         }
 
-        // Get targetVelocity from input.
-        Vector2 targetVelocity =new Vector2( Input.GetAxis("Horizontal") * targetMovingSpeed, Input.GetAxis("Vertical") * targetMovingSpeed);
+        Vector2 targetVelocity = new Vector2(Input.GetAxis("Horizontal") * targetMovingSpeed, Input.GetAxis("Vertical") * targetMovingSpeed);
 
-        // Apply movement.
         rigidbody.velocity = transform.rotation * new Vector3(targetVelocity.x, rigidbody.velocity.y, targetVelocity.y);
     }
 }

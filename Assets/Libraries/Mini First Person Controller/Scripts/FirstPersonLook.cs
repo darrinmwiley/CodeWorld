@@ -12,79 +12,55 @@ public class FirstPersonLook : MonoBehaviour
     Vector2 frameVelocity;
     private HashSet<GameObject> lookingAtObjects = new HashSet<GameObject>();
 
-    public float raycastDistance = 10f; // Adjust this value for the raycast distance.
-
+    public float raycastDistance = 10f; 
     private GameObject currentlyLookedAtObject;
-
-    //add a set of things you're looking at
-
 
     void Reset()
     {
-        // Get the character from the FirstPersonMovement in parents.
         character = GetComponentInParent<FirstPersonMovement>().transform;
-    }
-
-    void Start()
-    {
-        // Lock the mouse cursor to the game screen.
-        Cursor.lockState = CursorLockMode.Locked;
     }
 
     void Update()
     {
+        // 1. EXIT IMMEDIATELY IF IN UI
         if (GameState.IsInUI)
         {
-            if (Cursor.lockState != CursorLockMode.None)
-            {
-                Cursor.lockState = CursorLockMode.None;
-                Cursor.visible = true;
-            }
-            return; // Stop processing mouse look and raycasts while UI is open
+            // Reset frame velocity so the camera doesn't "drift" or "spin" 
+            // from the last movement before entering UI.
+            frameVelocity = Vector2.zero;
+            return; 
         }
-        else
-        {
-            if (Cursor.lockState != CursorLockMode.Locked)
-            {
-                Cursor.lockState = CursorLockMode.Locked;
-                Cursor.visible = false;
-            }
-        }
-        // Get smooth velocity.
+
+        // 2. PROCESS MOUSE LOOK
         Vector2 mouseDelta = new Vector2(Input.GetAxisRaw("Mouse X"), Input.GetAxisRaw("Mouse Y"));
         Vector2 rawFrameVelocity = Vector2.Scale(mouseDelta, Vector2.one * sensitivity);
+        
+        // Use smoothing logic
         frameVelocity = Vector2.Lerp(frameVelocity, rawFrameVelocity, 1 / smoothing);
         velocity += frameVelocity;
         velocity.y = Mathf.Clamp(velocity.y, -90, 90);
 
-        // Rotate camera up-down and controller left-right from velocity.
         transform.localRotation = Quaternion.AngleAxis(-velocity.y, Vector3.right);
         character.localRotation = Quaternion.AngleAxis(velocity.x, Vector3.up);
 
-         // Raycast to detect objects being looked at.
+        // 3. RAYCASTING
         RaycastHit[] hits = Physics.RaycastAll(transform.position, transform.forward, raycastDistance);
-        
-        // Create a set to track newly looked at objects.
         HashSet<GameObject> newLookingAtObjects = new HashSet<GameObject>();
 
         foreach (RaycastHit hit in hits)
         {
             GameObject hitObject = hit.collider.gameObject;
-            // Check if the object being looked at has a LookListener component.
             LookListener lookListener = hitObject.GetComponent<LookListener>();
             if (lookListener != null)
             {
                 if(!lookingAtObjects.Contains(hitObject))
                 {
-                    // Call a method on the object being looked at (if it has one).
                     lookListener.OnLook();
                 }
-
                 newLookingAtObjects.Add(hitObject);
             }
         }
 
-        // Find objects that are no longer being looked at and call OnLookAway.
         foreach (GameObject oldObject in lookingAtObjects)
         {
             if (!newLookingAtObjects.Contains(oldObject))
@@ -97,7 +73,6 @@ public class FirstPersonLook : MonoBehaviour
             }
         }
         
-        // Update the currently looked at objects.
         lookingAtObjects = newLookingAtObjects;
     }
 }
