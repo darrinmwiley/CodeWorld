@@ -53,27 +53,20 @@ public class WindowContainerController : WindowComponent, IFocusable, IBaseWindo
     public void UpdateRootConstraints(Vector2 minSize)
     {
         if (RootElement == null) return;
-
-        // Apply the reported minimums. 
-        // We ensure the window never shrinks below the combined needs of its children.
         RootElement.style.minWidth = minSize.x;
         RootElement.style.minHeight = minSize.y;
     }
 
     public override Vector2 GetMinimumSize()
     {
-        Vector2 totalMin = new Vector2(200, 150); // Hard floor for the shell itself
-
+        Vector2 totalMin = new Vector2(200, 150); 
         foreach (var map in _subComponents)
         {
             if (map.controller == null) continue;
             Vector2 childMin = map.controller.GetMinimumSize();
-            
-            // The shell's width is the widest child; height is additive if stacked
             totalMin.x = Mathf.Max(totalMin.x, childMin.x);
             totalMin.y = Mathf.Max(totalMin.y, childMin.y);
         }
-
         return totalMin;
     }
 
@@ -82,6 +75,7 @@ public class WindowContainerController : WindowComponent, IFocusable, IBaseWindo
         VisualElement parent = RootElement.parent;
         if (parent != null)
         {
+            // Center based on actual layout size, not requested default size
             float newLeft = (parent.layout.width - RootElement.layout.width) * 0.5f;
             float newTop = (parent.layout.height - RootElement.layout.height) * 0.5f;
             RootElement.style.left = Mathf.Max(0, newLeft);

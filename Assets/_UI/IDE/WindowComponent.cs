@@ -22,7 +22,6 @@ public abstract class WindowComponent : MonoBehaviour
 
     /// <summary>
     /// Returns the minimum size required by this component. 
-    /// Defaults to zero; should be overridden by containers like MultiPane.
     /// </summary>
     public virtual Vector2 GetMinimumSize() => Vector2.zero;
 
@@ -41,7 +40,7 @@ public abstract class WindowComponent : MonoBehaviour
             }
         }
 
-        // After all children are initialized, tell the root to recalculate its min-size
+        // Notify the root shell of the new aggregated constraints
         root?.UpdateRootConstraints(GetMinimumSize());
     }
 }

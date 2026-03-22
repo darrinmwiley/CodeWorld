@@ -10,6 +10,7 @@ public class MultiPaneWindowController : WindowComponent
     [SerializeField] private float _minLeftPaneWidth = 100f;
     [SerializeField] private float _minTopPaneHeight = 80f;
     [SerializeField] private float _minBottomPaneHeight = 80f;
+    [SerializeField] private float _minCenterPaneWidth = 50f;
 
     [Header("Cursor Settings")]
     public Texture2D horizontalCursor;
@@ -37,17 +38,56 @@ public class MultiPaneWindowController : WindowComponent
         SetupVerticalResizer();
         SetupHorizontalResizer();
 
+        // Reactive logic: Listen for window resizes to enforce internal constraints
+        _root.RegisterCallback<GeometryChangedEvent>(OnRootResized);
+        _centerPane.RegisterCallback<GeometryChangedEvent>(OnCenterPaneResized);
+
         InitializeSubComponents(_root, root);
     }
 
     public override Vector2 GetMinimumSize()
     {
-        // Width is the left pane min width + some margin for center
-        float minW = _minLeftPaneWidth + 50f; 
-        // Height is the sum of Top + Bottom + Separator
+        // Total Min Width = Left Pane + Center Area Floor
+        float minW = _minLeftPaneWidth + _minCenterPaneWidth; 
+        // Total Min Height = Top + Bottom + Separator Thickness (~10px)
         float minH = _minTopPaneHeight + _minBottomPaneHeight + 10f;
 
         return new Vector2(minW, minH);
+    }
+
+    private void OnRootResized(GeometryChangedEvent evt)
+    {
+        // Enforce horizontal constraints for the Left Pane
+        float totalWidth = evt.newRect.width;
+        if (totalWidth <= 0) return;
+
+        float currentLeftWidth = _leftPaneSlot.resolvedStyle.width;
+        
+        // If left pane + min center space is wider than window, shrink the left pane
+        if (currentLeftWidth + _minCenterPaneWidth > totalWidth)
+        {
+            float allowedWidth = Mathf.Max(_minLeftPaneWidth, totalWidth - _minCenterPaneWidth);
+            _leftPaneSlot.style.width = allowedWidth;
+            _leftPaneSlot.style.flexBasis = allowedWidth;
+        }
+    }
+
+    private void OnCenterPaneResized(GeometryChangedEvent evt)
+    {
+        // Enforce vertical constraints for Top/Bottom panes
+        float totalHeight = evt.newRect.height;
+        if (totalHeight <= 0) return;
+
+        float currentTopHeight = _topSlot.resolvedStyle.height;
+        float separatorHeight = 10f;
+
+        // If top + bottom min + separator > available space, push the divider up
+        if (currentTopHeight + _minBottomPaneHeight + separatorHeight > totalHeight)
+        {
+            float allowedHeight = Mathf.Max(_minTopPaneHeight, totalHeight - _minBottomPaneHeight - separatorHeight);
+            _topSlot.style.height = allowedHeight;
+            _topSlot.style.flexBasis = allowedHeight;
+        }
     }
 
     private void SetupVerticalResizer()
@@ -58,10 +98,14 @@ public class MultiPaneWindowController : WindowComponent
         verticalSep.RegisterCallback<PointerEnterEvent>(e => UnityEngine.Cursor.SetCursor(horizontalCursor, hotSpot, CursorMode.Auto));
         verticalSep.RegisterCallback<PointerLeaveEvent>(e => UnityEngine.Cursor.SetCursor(null, Vector2.zero, CursorMode.Auto));
         verticalSep.RegisterCallback<PointerDownEvent>(e => { verticalSep.CapturePointer(e.pointerId); e.StopPropagation(); });
+        
         verticalSep.RegisterCallback<PointerMoveEvent>(e => {
             if (!verticalSep.HasPointerCapture(e.pointerId)) return;
+            
             float newWidth = _root.WorldToLocal(e.position).x - _leftPaneSlot.layout.x;
-            if (newWidth > _minLeftPaneWidth) {
+            float maxAllowed = _root.resolvedStyle.width - _minCenterPaneWidth;
+
+            if (newWidth > _minLeftPaneWidth && newWidth < maxAllowed) {
                 _leftPaneSlot.style.width = newWidth;
                 _leftPaneSlot.style.flexBasis = newWidth;
             }
@@ -77,13 +121,16 @@ public class MultiPaneWindowController : WindowComponent
         horizontalSep.RegisterCallback<PointerEnterEvent>(e => UnityEngine.Cursor.SetCursor(verticalCursor, hotSpot, CursorMode.Auto));
         horizontalSep.RegisterCallback<PointerLeaveEvent>(e => UnityEngine.Cursor.SetCursor(null, Vector2.zero, CursorMode.Auto));
         horizontalSep.RegisterCallback<PointerDownEvent>(e => { horizontalSep.CapturePointer(e.pointerId); e.StopPropagation(); });
+        
         horizontalSep.RegisterCallback<PointerMoveEvent>(e => {
             if (!horizontalSep.HasPointerCapture(e.pointerId)) return;
+
             Vector2 localMouse = _root.WorldToLocal(e.position);
             float newHeight = localMouse.y - _topSlot.layout.y;
-            float totalHeight = _centerPane.resolvedStyle.height;
+            float totalHeightAvailable = _centerPane.resolvedStyle.height;
+            float maxAllowed = totalHeightAvailable - _minBottomPaneHeight - 10f;
 
-            if (newHeight > _minTopPaneHeight && (totalHeight - newHeight) > _minBottomPaneHeight) {
+            if (newHeight > _minTopPaneHeight && newHeight < maxAllowed) {
                 _topSlot.style.flexGrow = 0; 
                 _topSlot.style.flexBasis = newHeight;
                 _topSlot.style.height = newHeight;
