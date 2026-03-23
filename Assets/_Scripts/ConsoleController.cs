@@ -147,6 +147,68 @@ public class ConsoleController : MonoBehaviour
     private static readonly List<ConsoleController> s_allConsoles = new List<ConsoleController>();
     public SyntaxHighlighter syntaxHighlighter;
 
+    public bool _isInitialized = false;
+
+    // --- NEW: Dependency Injection Bridge ---
+    public void BindToElement(VisualElement element, UIDocument doc)
+    {
+        if (element == null)
+        {
+            Debug.LogError($"[DEBUG] ConsoleController on {gameObject.name} received a NULL element during BindToElement!");
+            return;
+        }
+
+        Debug.Log($"[DEBUG] ConsoleController on {gameObject.name} successfully bound to VisualElement: {element.name}");
+        _outputVE = element;
+        uiDocument = doc;
+
+        if (_isInitialized)
+        {
+            Debug.Log($"[DEBUG] Console already initialized. Executing immediate UI Hook.");
+            HookToUIToolkit(true);
+        }
+    }
+
+    void HookToUIToolkit(bool injected = false)
+    {
+        if (!injected && _outputVE == null)
+        {
+            if (uiDocument == null) return;
+            _outputVE = uiDocument.rootVisualElement.Q<VisualElement>(outputElementName);
+        }
+
+        if (_outputVE == null)
+        {
+            Debug.LogWarning($"[DEBUG] HookToUIToolkit failed: _outputVE is still null on {gameObject.name}");
+            return;
+        }
+
+        Debug.Log($"[DEBUG] Hooking UI Toolkit. Element: {_outputVE.name}, RenderTexture: {(renderTexture != null ? "Ready" : "Null")}");
+        
+        BindRenderTextureToOutput();
+
+        if (_uiHooked) return;
+        _uiHooked = true;
+
+        _outputVE.focusable = true;
+
+        _outputVE.RegisterCallback<PointerDownEvent>(evt =>
+        {
+            if (evt.button != (int)MouseButton.LeftMouse) return;
+            FocusThisConsole();
+            BringToFront();
+            evt.StopPropagation();
+        });
+
+        _outputVE.RegisterCallback<GeometryChangedEvent>(OnOutputGeometryChanged);
+
+        if (mouseListener != null)
+        {
+            Debug.Log($"[DEBUG] Binding mouse listener to element: {_outputVE.name}");
+            mouseListener.Bind(_outputVE);
+        }
+    }
+
     private void OnEnable()
     {
         if (!s_allConsoles.Contains(this))
@@ -161,6 +223,7 @@ public class ConsoleController : MonoBehaviour
     // Start is called before the first frame update
     void Start()
     {
+        _isInitialized = true;
         _instanceId = s_instanceCounter++;
         _consoleLayer = LayerMask.NameToLayer(consoleRenderLayerName);
         if (_consoleLayer < 0)
@@ -168,9 +231,12 @@ public class ConsoleController : MonoBehaviour
             Debug.LogError($"Layer '{consoleRenderLayerName}' does not exist. Create it in Project Settings > Tags and Layers.");
         }
 
-        mouseListener.AddMouseDownHandler(OnMouseDown);
-        mouseListener.AddMouseUpHandler(OnMouseUp);
-        mouseListener.AddMouseDragHandler(OnMouseDrag);
+        if (mouseListener != null)
+        {
+            mouseListener.AddMouseDownHandler(OnMouseDown);
+            mouseListener.AddMouseUpHandler(OnMouseUp);
+            mouseListener.AddMouseDragHandler(OnMouseDrag);
+        }
 
         InitKeyHandlers();
         lines.Add("");
@@ -178,52 +244,6 @@ public class ConsoleController : MonoBehaviour
         HookToUIToolkit();
         UpdateConsole();
     }
-
-    void HookToUIToolkit()
-    {
-        if (uiDocument == null)
-        {
-            Debug.LogError("ConsoleController: uiDocument is not set.");
-            return;
-        }
-
-        _outputVE = uiDocument.rootVisualElement.Q<VisualElement>(outputElementName);
-        if (_outputVE == null)
-        {
-            Debug.LogError($"ConsoleController: Could not find VisualElement '{outputElementName}' under UIDocument root.");
-            return;
-        }
-
-        // Always (re)bind the current RenderTexture
-        BindRenderTextureToOutput();
-
-        if (_uiHooked) return;
-        _uiHooked = true;
-
-        // Make console focusable
-        _outputVE.focusable = true;
-
-        // Click inside console → focus this console (and defocus others)
-        _outputVE.RegisterCallback<PointerDownEvent>(evt =>
-        {
-            if (evt.button != (int)MouseButton.LeftMouse) return;
-
-            FocusThisConsole();
-            BringToFront();
-
-            evt.StopPropagation();
-        });
-
-        // Recompute rows/cols when this element's geometry changes (window resize)
-        _outputVE.RegisterCallback<GeometryChangedEvent>(OnOutputGeometryChanged);
-
-        // Bind mouse listener to this VisualElement
-        if (mouseListener != null)
-            mouseListener.Bind(_outputVE);
-
-        // NOTE: handlers were already added in Start(); don't double-add here.
-    }
-
 
     private void BindRenderTextureToOutput()
     {
@@ -333,31 +353,34 @@ public class ConsoleController : MonoBehaviour
 
 
     // In ConsoleController.cs
-    public void BringToFront() // Changed to public so manipulators can call it
+    public void BringToFront() 
     {
-        if (_outputVE == null || uiDocument == null) return;
+        if (_outputVE == null) return;
 
         // 1. Internal hierarchy reordering (standard UI Toolkit)
         VisualElement windowRoot = _outputVE;
-        while (windowRoot.parent != null && windowRoot.parent != uiDocument.rootVisualElement)
+        while (windowRoot.parent != null && (uiDocument == null || windowRoot.parent != uiDocument.rootVisualElement))
         {
             windowRoot = windowRoot.parent;
         }
         windowRoot?.BringToFront();
 
         // 2. Global Document reordering
-        int maxSortOrder = 0;
-        foreach (var console in s_allConsoles)
+        if (uiDocument != null)
         {
-            if (console != null && console.uiDocument != null)
+            int maxSortOrder = 0;
+            foreach (var console in s_allConsoles)
             {
-                // Use Math.Max to find the current "highest" window
-                maxSortOrder = (int)(Mathf.Max(maxSortOrder, console.uiDocument.sortingOrder));
+                if (console != null && console.uiDocument != null)
+                {
+                    // Use Math.Max to find the current "highest" window
+                    maxSortOrder = (int)(Mathf.Max(maxSortOrder, console.uiDocument.sortingOrder));
+                }
             }
-        }
 
-        // Set this document to be the new top layer
-        uiDocument.sortingOrder = maxSortOrder + 1;
+            // Set this document to be the new top layer
+            uiDocument.sortingOrder = maxSortOrder + 1;
+        }
     }
 
     private void FocusThisConsole()
@@ -1170,42 +1193,30 @@ public class ConsoleController : MonoBehaviour
 
     Vector2Int GetCursorLocationForMouse()
     {
-        if (_outputVE == null || renderTexture == null) return Vector2Int.zero;
+        if (_outputVE == null || renderTexture == null || mouseListener == null) return Vector2Int.zero;
 
-        // 1. Get the current size of the UI Element (the "Window")
         float elemW = _outputVE.resolvedStyle.width;
         float elemH = _outputVE.resolvedStyle.height;
-
-        // 2. Get the fixed size of the Console Texture (e.g., 1000x500)
         float texW = renderTexture.width;
         float texH = renderTexture.height;
 
         if (elemW <= 0 || elemH <= 0) return Vector2Int.zero;
 
-        // 3. Get normalized mouse position (0.0 to 1.0) relative to the UI element
         float rawU = mouseListener.currentMousePosition.x;
         float rawV = mouseListener.currentMousePosition.y;
 
-        // 4. Convert normalized position to literal Window Pixels
         float pixelX = rawU * elemW;
-        float pixelY = (1f - rawV) * elemH; // y=0 is top in local space
+        float pixelY = (1f - rawV) * elemH; 
 
-        // 5. Map Window Pixels to Texture UVs (1:1 mapping)
-        // If pixelX is 150 and texW is 1000, textureU is 0.15
         float textureU = pixelX / texW;
         float textureV = 1f - (pixelY / texH);
 
-        // 6. Clamp to 0-1 to ensure clicks outside the texture bounds 
-        // (black space) are treated as the edge of the grid.
         float clampedU = Mathf.Clamp01(textureU);
         float clampedV = Mathf.Clamp01(textureV);
 
-        // 7. Map UVs to Grid Rows/Columns
-        // Vertical: (1 - V) * height maps 0.0(top) to Row 0
         int r = Mathf.Max(0, Mathf.Min(lines.Count - 1 - verticalScroll, 
                 (int)((1 - clampedV) * viewportHeight)));
         
-        // Horizontal: (U * width) - padding
         int padding = GetLineCountPadding();
         int c = Mathf.Max(0, Mathf.Min(lines[r + verticalScroll].Length, 
                 (int)(clampedU * viewportWidth + .5) - padding));
@@ -1442,14 +1453,12 @@ public class ConsoleController : MonoBehaviour
 
     void Update()
     {
-        // Escape should defocus all consoles and recapture mouse
         if (escapeDefocusesAll && Input.GetKeyDown(KeyCode.Escape))
         {
             DefocusAllAndRecaptureMouse(escapeCursorLockMode, escapeCursorVisible);
             return;
         }
 
-        // Clicking outside this console should defocus it (even if you clicked another console or empty space)
         if (isFocused && Input.GetMouseButtonDown(0))
         {
             if (!IsPointerInsideThisConsole())
@@ -1461,14 +1470,14 @@ public class ConsoleController : MonoBehaviour
         if (!isFocused)
             return;
 
-        if (mouseListener.isMouseDragging && mouseListener.currentMousePosition.y > 1 && Time.time > lastDragScrollTime + GetTimeBetweenDragScroll())
+        if (mouseListener != null && mouseListener.isMouseDragging && mouseListener.currentMousePosition.y > 1 && Time.time > lastDragScrollTime + GetTimeBetweenDragScroll())
         {
             MaybeUpScroll();
             Vector2Int cursorLocation = GetCursorLocationForMouse();
             dragCurrent = new Vector2Int(cursorLocation.x + verticalScroll, cursorLocation.y);
             lastDragScrollTime = Time.time;
         }
-        if (mouseListener.isMouseDragging && mouseListener.currentMousePosition.y < 0 && Time.time > lastDragScrollTime + GetTimeBetweenDragScroll())
+        if (mouseListener != null && mouseListener.isMouseDragging && mouseListener.currentMousePosition.y < 0 && Time.time > lastDragScrollTime + GetTimeBetweenDragScroll())
         {
             MaybeDownScroll();
             lastDragScrollTime = Time.time;

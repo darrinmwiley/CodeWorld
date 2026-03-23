@@ -27,20 +27,38 @@ public abstract class WindowComponent : MonoBehaviour
 
     protected void InitializeSubComponents(VisualElement localRoot, IBaseWindow root)
     {
-        if (_subComponents == null) return;
+        if (_subComponents == null) 
+        {
+            Debug.LogWarning($"[DEBUG] No sub-components defined on {gameObject.name}");
+            return;
+        }
 
         foreach (var map in _subComponents)
         {
-            if (string.IsNullOrEmpty(map.slotName) || map.controller == null) continue;
+            if (string.IsNullOrEmpty(map.slotName))
+            {
+                Debug.LogError($"[DEBUG] Empty slot name found in mapping on {gameObject.name}");
+                continue;
+            }
 
             var slot = localRoot.Q<VisualElement>(map.slotName);
-            if (slot != null)
+            
+            if (slot == null)
             {
-                map.controller.Initialize(slot, root);
+                Debug.LogError($"[DEBUG] FAILED to find VisualElement slot '{map.slotName}' inside {gameObject.name}. Check your UXML names!");
+                continue;
             }
+
+            if (map.controller == null)
+            {
+                Debug.LogError($"[DEBUG] Slot '{map.slotName}' found, but the Controller reference is MISSING on {gameObject.name}");
+                continue;
+            }
+
+            Debug.Log($"[DEBUG] Successfully located slot '{map.slotName}'. Initializing controller: {map.controller.gameObject.name}");
+            map.controller.Initialize(slot, root);
         }
 
-        // Notify the root shell of the new aggregated constraints
         root?.UpdateRootConstraints(GetMinimumSize());
     }
 }
