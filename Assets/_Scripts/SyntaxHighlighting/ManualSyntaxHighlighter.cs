@@ -6,7 +6,7 @@ public class ManualSyntaxHighlighter : SyntaxHighlighter
     // Vector3Int: x = Row, y = StartColumn, z = Length
     public Dictionary<Vector3Int, Color> colorMap = new Dictionary<Vector3Int, Color>();
 
-    public override void Highlight(ConsoleController console)
+    public override void Highlight(ConsoleRenderer renderer)
     {
         foreach (var entry in colorMap)
         {
@@ -15,26 +15,29 @@ public class ManualSyntaxHighlighter : SyntaxHighlighter
 
             for (int i = 0; i < pos.z; i++)
             {
-                PaintManual(console, pos.x, pos.y + i, color);
+                PaintManual(renderer, pos.x, pos.y + i, color);
             }
         }
     }
 
-    private void PaintManual(ConsoleController console, int row, int col, Color color)
+    private void PaintManual(ConsoleRenderer renderer, int row, int col, Color color)
     {
-        int padding = console.GetLineCountPadding();
-        int vScroll = console.verticalScroll;
-        int hScroll = console.horizontalScroll;
+        var state = renderer.stateManager;
+        
+        int padding = state.GetLineCountPadding();
+        int vScroll = state.verticalScroll;
+        int hScroll = state.horizontalScroll;
 
         int viewportRow = row - vScroll;
         int viewportCol = (col - hScroll) + padding;
 
-        // Defensive checks
-        if (viewportRow >= 0 && viewportRow < console.viewportHeight &&
-            viewportCol >= padding && viewportCol < console.viewportWidth &&
-            row < console.lines.Count && col < console.lines[row].Length)
+        // Defensive checks across the State Manager constraints
+        if (viewportRow >= 0 && viewportRow < state.viewportHeight &&
+            viewportCol >= padding && viewportCol < state.viewportWidth &&
+            row < state.lines.Count && col < state.lines[row].Length)
         {
-            console.SetCellTextColor(viewportRow, viewportCol, color);
+            // Apply color to the Renderer
+            renderer.SetCellTextColor(viewportRow, viewportCol, color);
         }
     }
 

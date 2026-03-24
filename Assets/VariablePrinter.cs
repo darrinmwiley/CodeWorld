@@ -5,7 +5,7 @@ using UnityEngine.Events;
 public class VariablePrinter : BaseClickable
 {
     [Header("UI Window")]
-    public Draggable2PaneWindow printerWindow;
+    //public Draggable2PaneWindow printerWindow;
     public UnityEvent OnPrinterClicked;
 
     [Header("Shape Prototypes")]
@@ -32,11 +32,11 @@ public class VariablePrinter : BaseClickable
 
     protected override void HandleClick()
     {
-        if (printerWindow != null)
+        /*if (printerWindow != null)
         {
             printerWindow.ShowWindow();
             OnPrinterClicked?.Invoke();
-        }
+        }*/
     }
 
     public void PrintShape(string type, string value)

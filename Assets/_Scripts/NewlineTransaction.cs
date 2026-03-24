@@ -9,7 +9,7 @@ public class NewlineTransaction : Transaction
     ConsoleState preState;
     ConsoleState postState;
 
-    public void Apply(ConsoleController console)
+    public void Apply(ConsoleStateManager console)
     {
         if(preState == null)
             preState = console.GetState();
@@ -20,7 +20,7 @@ public class NewlineTransaction : Transaction
         postState = console.GetState();
     }
 
-    public void Revert(ConsoleController console)
+    public void Revert(ConsoleStateManager console)
     {
         console.SetState(postState);
         console.RevertNewLine();

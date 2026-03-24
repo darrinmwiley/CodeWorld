@@ -23,9 +23,11 @@ public class JavaSyntaxHighlighter : SyntaxHighlighter
         JavaLexer.FLOAT, JavaLexer.INT, JavaLexer.LONG, JavaLexer.SHORT
     };
 
-    public override void Highlight(ConsoleController console)
+    public override void Highlight(ConsoleRenderer renderer)
     {
-        string code = string.Join("\n", console.lines);
+        // Pull text data from the State Manager
+        string code = string.Join("\n", renderer.stateManager.lines);
+        
         var inputStream = new AntlrInputStream(code);
         var lexer = new JavaLexer(inputStream);
         var tokenStream = new CommonTokenStream(lexer);
@@ -43,7 +45,7 @@ public class JavaSyntaxHighlighter : SyntaxHighlighter
             else if (token.Type == JavaLexer.COMMENT || token.Type == JavaLexer.LINE_COMMENT) targetColor = commentColor;
             else if (token.Type == JavaLexer.IDENTIFIER) targetColor = identifierColor;
 
-            PaintToken(console, token, targetColor);
+            PaintToken(renderer, token, targetColor);
         }
     }
 }

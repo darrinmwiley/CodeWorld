@@ -11,9 +11,11 @@ public class CSharpSyntaxHighlighter : SyntaxHighlighter
     public Color commentColor = new Color(106/255f, 153/255f, 85/255f); // Green
     public Color defaultColor = Color.white;
 
-    public override void Highlight(ConsoleController console)
+    public override void Highlight(ConsoleRenderer renderer)
     {
-        string code = string.Join("\n", console.lines);
+        // Pull text data from the State Manager
+        string code = string.Join("\n", renderer.stateManager.lines);
+        
         var inputStream = new AntlrInputStream(code);
         var lexer = new CSharpLexer(inputStream);
         var tokenStream = new CommonTokenStream(lexer);
@@ -35,7 +37,7 @@ public class CSharpSyntaxHighlighter : SyntaxHighlighter
             {
                 targetColor = typeColor;
             }
-            // Literals (The fix for your definition error is here)
+            // Literals
             else if (token.Type == CSharpLexer.INTEGER_LITERAL || 
                      token.Type == CSharpLexer.REGULAR_STRING || 
                      token.Type == CSharpLexer.VERBATIUM_STRING)
@@ -49,7 +51,7 @@ public class CSharpSyntaxHighlighter : SyntaxHighlighter
                 targetColor = commentColor;
             }
 
-            PaintToken(console, token, targetColor);
+            PaintToken(renderer, token, targetColor);
         }
     }
 }

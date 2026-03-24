@@ -1,0 +1,284 @@
+using System;
+using System.Collections.Generic;
+using UnityEngine;
+
+public class ConsoleInputManager : MonoBehaviour
+{
+    [Header("Dependencies")]
+    public ConsoleStateManager stateManager;
+    public ConsoleWindowController windowController;
+
+    [Header("Settings")]
+    public UIToolkitMouseListenerMono mouseListener;
+    public float heldKeyDelay = .005f;
+    public float heldKeyTriggerTime = .4f;
+
+    private Dictionary<KeyCode, Action> specialKeyPressHandlers;
+    private KeyCode latest = KeyCode.None;
+    private float latestDownTime = 0;
+    private bool isKeyHeld = false;
+    private float lastHeldKeyTriggerTime = 0;
+    private float lastDragScrollTime = 0;
+
+    public void Initialize()
+    {
+        InitKeyHandlers();
+        if (mouseListener != null)
+        {
+            mouseListener.AddMouseDownHandler(OnMouseDown);
+            mouseListener.AddMouseDragHandler(OnMouseDrag);
+        }
+    }
+
+    private void InitKeyHandlers()
+    {
+        specialKeyPressHandlers = new Dictionary<KeyCode, Action>
+        {
+            { KeyCode.Return, OnReturnPressed },
+            { KeyCode.KeypadEnter, OnReturnPressed },
+            { KeyCode.Backspace, OnBackspacePressed },
+            { KeyCode.LeftArrow, OnLeftArrowPressed },
+            { KeyCode.RightArrow, OnRightArrowPressed },
+            { KeyCode.UpArrow, OnUpArrowPressed },
+            { KeyCode.DownArrow, OnDownArrowPressed },
+            { KeyCode.Tab, OnTabPressed },
+            { KeyCode.Delete, OnDeletePressed },
+            { KeyCode.C, () => HandleAlphaShortcut('c', 'C', OnCAction) },
+            { KeyCode.V, () => HandleAlphaShortcut('v', 'V', OnVAction) },
+            { KeyCode.X, () => HandleAlphaShortcut('x', 'X', OnXAction) },
+            { KeyCode.Y, () => HandleAlphaShortcut('y', 'Y', () => stateManager.Redo()) },
+            { KeyCode.Z, () => HandleAlphaShortcut('z', 'Z', () => stateManager.Undo()) },
+            { KeyCode.A, () => HandleAlphaShortcut('a', 'A', SelectAll) },
+            { KeyCode.S, () => HandleAlphaShortcut('s', 'S', () => stateManager.Save("fname.txt")) },
+            { KeyCode.L, () => HandleAlphaShortcut('l', 'L', () => stateManager.Load("fname.txt")) }
+        };
+    }
+
+    private void Update()
+    {
+        if (windowController.escapeDefocusesAll && Input.GetKeyDown(KeyCode.Escape))
+        {
+            ConsoleWindowController.DefocusAllAndRecaptureMouse(windowController.escapeCursorLockMode, windowController.escapeCursorVisible);
+            return;
+        }
+
+        if (windowController.IsFocused && Input.GetMouseButtonDown(0))
+        {
+            if (!windowController.IsPointerInsideThisConsole(Input.mousePosition))
+                windowController.DefocusInternal();
+        }
+
+        if (!windowController.IsFocused) return;
+
+        HandleMouseScrolling();
+        HandleKeyboardInput();
+    }
+
+    private void HandleKeyboardInput()
+    {
+        if (stateManager.readOnly) return;
+
+        HashSet<char> excluded = new HashSet<char>() { (char)8, (char)10, (char)13, 'c', 'C', 'v', 'V', 'x', 'X', 'y', 'Y', 'z', 'Z', 'a', 'A', 's', 'S', 'l', 'L' };
+        foreach (char ch in Input.inputString)
+        {
+            if (!excluded.Contains(ch))
+            {
+                OnCharTyped(ch);
+                latest = KeyCode.None;
+            }
+        }
+
+        if (!Input.GetKey(latest)) isKeyHeld = false;
+
+        foreach (var kvp in specialKeyPressHandlers)
+        {
+            KeyCode code = kvp.Key;
+            if (Input.GetKeyDown(code))
+            {
+                if (code != latest) isKeyHeld = false;
+                kvp.Value.Invoke();
+                latest = code;
+                latestDownTime = Time.time;
+            }
+            if (Input.GetKey(code))
+            {
+                if (code == latest && !isKeyHeld && Time.time - latestDownTime >= heldKeyTriggerTime)
+                {
+                    isKeyHeld = true;
+                    lastHeldKeyTriggerTime = Time.time;
+                }
+                else if (code == latest && isKeyHeld && Time.time - lastHeldKeyTriggerTime > heldKeyDelay)
+                {
+                    kvp.Value.Invoke();
+                    lastHeldKeyTriggerTime = Time.time;
+                }
+            }
+        }
+    }
+
+    private void HandleMouseScrolling()
+    {
+        if (mouseListener != null && mouseListener.isMouseDragging)
+        {
+            float dragDelay = GetTimeBetweenDragScroll();
+            if (mouseListener.currentMousePosition.y > 1 && Time.time > lastDragScrollTime + dragDelay)
+            {
+                MaybeUpScroll();
+                Vector2Int loc = windowController.GetCursorLocationForMouse(mouseListener.currentMousePosition);
+                stateManager.dragCurrent = new Vector2Int(loc.x + stateManager.verticalScroll, loc.y);
+                lastDragScrollTime = Time.time;
+            }
+            else if (mouseListener.currentMousePosition.y < 0 && Time.time > lastDragScrollTime + dragDelay)
+            {
+                MaybeDownScroll();
+                lastDragScrollTime = Time.time;
+            }
+        }
+
+        float scrollInput = Input.GetAxis("Mouse ScrollWheel");
+        if (scrollInput != 0)
+        {
+            if (scrollInput > 0) MaybeUpScroll();
+            else MaybeDownScroll();
+        }
+    }
+
+    private void OnMouseDown()
+    {
+        windowController.BringToFront();
+        Vector2Int loc = windowController.GetCursorLocationForMouse(mouseListener.currentMousePosition);
+        stateManager.dragStart = new Vector2Int(loc.x + stateManager.verticalScroll, loc.y + stateManager.horizontalScroll);
+        stateManager.dragCurrent = stateManager.dragStart;
+        stateManager.cursorRow = loc.x + stateManager.verticalScroll;
+        stateManager.visibleCursorCol = stateManager.cursorCol = loc.y + stateManager.horizontalScroll;
+        stateManager.NotifyStateChanged();
+    }
+
+    private void OnMouseDrag()
+    {
+        Vector2Int loc = windowController.GetCursorLocationForMouse(mouseListener.currentMousePosition);
+        stateManager.dragCurrent = new Vector2Int(loc.x + stateManager.verticalScroll, loc.y + stateManager.horizontalScroll);
+        if (stateManager.dragCurrent != stateManager.dragStart) stateManager.isHighlighting = true;
+        stateManager.NotifyStateChanged();
+    }
+
+    private float GetTimeBetweenDragScroll()
+    {
+        if (mouseListener.currentMousePosition.y > .95f) return Mathf.Max(0, .2f - (mouseListener.currentMousePosition.y - .95f));
+        if (mouseListener.currentMousePosition.y < .05f) return Mathf.Max(0, .2f - (.05f - mouseListener.currentMousePosition.y));
+        return 1f;
+    }
+
+    // --- Key Binding Logic ---
+    private void OnReturnPressed()
+    {
+        if (!stateManager.allowNewLines) return;
+        stateManager.ApplyTransaction(new NewlineTransaction());
+    }
+
+    private void OnBackspacePressed() => stateManager.ApplyTransaction(new DeleteTransaction(true));
+    private void OnDeletePressed() => stateManager.ApplyTransaction(new DeleteTransaction(false));
+
+    private void OnUpArrowPressed()
+    {
+        stateManager.isHighlighting = false;
+        if (stateManager.cursorRow > 0)
+        {
+            stateManager.cursorRow--;
+            stateManager.visibleCursorCol = Mathf.Min(stateManager.cursorCol, stateManager.lines[stateManager.cursorRow].Length);
+            stateManager.AdjustScrollToCursor();
+            stateManager.NotifyStateChanged();
+        }
+    }
+
+    private void OnDownArrowPressed()
+    {
+        stateManager.isHighlighting = false;
+        if (stateManager.cursorRow < stateManager.lines.Count - 1)
+        {
+            stateManager.cursorRow++;
+            stateManager.visibleCursorCol = Mathf.Min(stateManager.cursorCol, stateManager.lines[stateManager.cursorRow].Length);
+            stateManager.AdjustScrollToCursor();
+            stateManager.NotifyStateChanged();
+        }
+    }
+
+    private void OnLeftArrowPressed()
+    {
+        stateManager.isHighlighting = false;
+        if (stateManager.visibleCursorCol != 0) stateManager.visibleCursorCol--;
+        else if (stateManager.cursorRow != 0)
+        {
+            stateManager.cursorRow--;
+            stateManager.visibleCursorCol = stateManager.lines[stateManager.cursorRow].Length;
+        }
+        stateManager.cursorCol = stateManager.visibleCursorCol;
+        stateManager.AdjustScrollToCursor();
+        stateManager.NotifyStateChanged();
+    }
+
+    private void OnRightArrowPressed()
+    {
+        stateManager.isHighlighting = false;
+        if (stateManager.visibleCursorCol != stateManager.lines[stateManager.cursorRow].Length) stateManager.visibleCursorCol++;
+        else if (stateManager.cursorRow < stateManager.lines.Count - 1)
+        {
+            stateManager.cursorRow++;
+            stateManager.visibleCursorCol = 0;
+        }
+        stateManager.cursorCol = stateManager.visibleCursorCol;
+        stateManager.AdjustScrollToCursor();
+        stateManager.NotifyStateChanged();
+    }
+
+    private void OnTabPressed()
+    {
+        int numSpaces = stateManager.spacesPerTab - (stateManager.visibleCursorCol % stateManager.spacesPerTab);
+        string tab = new string(' ', numSpaces);
+        stateManager.ApplyTransaction(new InsertTransaction(tab));
+    }
+
+    private void OnCharTyped(char ch)
+    {
+        if (ch == (char)0) return;
+        stateManager.ApplyTransaction(new InsertTransaction(ch + ""));
+    }
+
+    private void HandleAlphaShortcut(char lower, char upper, Action ctrlAction)
+    {
+        if (Input.GetKey(KeyCode.LeftControl) || Input.GetKey(KeyCode.RightControl)) ctrlAction?.Invoke();
+        else OnCharTyped(IsUpperCase() ? upper : lower);
+    }
+
+    private bool IsUpperCase() => (Input.GetKey(KeyCode.LeftControl) || Input.GetKey(KeyCode.RightControl)) ^ (Input.GetKey(KeyCode.LeftShift) || Input.GetKey(KeyCode.RightShift));
+
+    private void OnCAction() => stateManager.SetCopyBuffer(stateManager.GetHighlightedText());
+    private void OnVAction() => stateManager.ApplyTransaction(new InsertTransaction(stateManager.GetCopyBuffer()));
+    private void OnXAction()
+    {
+        if (stateManager.isHighlighting)
+        {
+            stateManager.SetCopyBuffer(stateManager.GetHighlightedText());
+            stateManager.ApplyTransaction(new DeleteTransaction(true));
+        }
+        stateManager.isHighlighting = false;
+    }
+    private void SelectAll()
+    {
+        stateManager.isHighlighting = true;
+        stateManager.dragStart = new Vector2Int(0, 0);
+        stateManager.dragCurrent = new Vector2Int(stateManager.lines.Count - 1, stateManager.lines[stateManager.lines.Count - 1].Length);
+        stateManager.NotifyStateChanged();
+    }
+
+    private void MaybeDownScroll()
+    {
+        if (stateManager.verticalScroll < stateManager.lines.Count - 1) stateManager.verticalScroll++;
+        stateManager.NotifyStateChanged();
+    }
+    private void MaybeUpScroll()
+    {
+        if (stateManager.verticalScroll != 0) stateManager.verticalScroll--;
+        stateManager.NotifyStateChanged();
+    }
+}

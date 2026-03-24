@@ -16,7 +16,7 @@ public class InsertTransaction : Transaction
         this.insertion = insertion.Split("\n");
     }
 
-    public void Apply(ConsoleController console)
+    public void Apply(ConsoleStateManager console)
     {
         if(preState == null)
         {
@@ -34,7 +34,7 @@ public class InsertTransaction : Transaction
         console.InsertLines(insertion);
     }
 
-    public void Revert(ConsoleController console)
+    public void Revert(ConsoleStateManager console)
     {
         console.SetState(preState);
         if(insertion.Length == 1)

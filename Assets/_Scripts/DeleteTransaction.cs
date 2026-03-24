@@ -16,7 +16,7 @@ public class DeleteTransaction : Transaction
         this.isBackspace = isBackspace;
     }
 
-    public void Apply(ConsoleController console)
+    public void Apply(ConsoleStateManager console)
     {
         if(preState == null)
             preState = console.GetState();
@@ -27,7 +27,7 @@ public class DeleteTransaction : Transaction
         this.postState = console.GetState();
     }
 
-    public void Revert(ConsoleController console)
+    public void Revert(ConsoleStateManager console)
     {
         console.SetState(postState);
         console.InsertLines(this.deletion);

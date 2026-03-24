@@ -4,7 +4,7 @@ using UnityEngine;
 
 public interface Transaction
 {   
-    void Apply(ConsoleController console);
-    void Revert(ConsoleController console);
+    void Apply(ConsoleStateManager console);
+    void Revert(ConsoleStateManager console);
     bool IsMutation();
 }
