@@ -1,0 +1,5 @@
+<ui:UXML xmlns:ui="UnityEngine.UIElements" xmlns:uie="UnityEditor.UIElements" xsi="http://www.w3.org/2001/XMLSchema-instance" engine="UnityEngine.UIElements" editor="UnityEditor.UIElements" noNamespaceSchemaLocation="../../../UIElementsSchema/UIElements.xsd" editor-extension-mode="False">
+    <ui:VisualElement style="flex-grow: 1; background-color: rgba(106, 106, 106, 0); flex-direction: row; height: 24px; max-height: 24px; min-height: 24px; align-self: auto; justify-content: flex-start; align-items: auto; -unity-text-align: middle-left; -unity-font-style: normal;">
+        <ui:Label tabindex="-1" text="Label" display-tooltip-when-elided="true" name="FileName" style="width: auto; align-self: flex-start; color: rgb(255, 255, 255);" />
+    </ui:VisualElement>
+</ui:UXML>

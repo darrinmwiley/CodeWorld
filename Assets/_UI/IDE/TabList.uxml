@@ -1,7 +1,7 @@
 <ui:UXML xmlns:ui="UnityEngine.UIElements" xmlns:uie="UnityEditor.UIElements" xsi="http://www.w3.org/2001/XMLSchema-instance" engine="UnityEngine.UIElements" editor="UnityEditor.UIElements" noNamespaceSchemaLocation="../../../UIElementsSchema/UIElements.xsd" editor-extension-mode="False">
     <ui:VisualElement style="flex-grow: 1; background-color: rgb(123, 123, 123); width: 50px; min-height: auto;">
-        <ui:Button display-tooltip-when-elided="true" style="width: 40px; height: 40px; max-width: 40px; max-height: 40px; min-width: 40px; min-height: 40px;" />
-        <ui:Button display-tooltip-when-elided="true" style="width: 40px; height: 40px; max-width: 40px; max-height: 40px; min-width: 40px; min-height: 40px;" />
+        <ui:Button display-tooltip-when-elided="true" style="width: 40px; height: 40px; max-width: 40px; max-height: 40px; min-width: 40px; min-height: 40px; background-image: url(&apos;project://database/Assets/_UI/IDE/code.png?fileID=2800000&amp;guid=b765f503e9a229d4586d520f824367e8&amp;type=3#code&apos;); background-color: rgb(188, 188, 188);" />
+        <ui:Button display-tooltip-when-elided="true" style="width: 40px; height: 40px; max-width: 40px; max-height: 40px; min-width: 40px; min-height: 40px; background-image: url(&apos;project://database/Assets/_UI/IDE/documentation.png?fileID=2800000&amp;guid=27e4b2af372cf1c4d9a219d1ba8d06a8&amp;type=3#documentation&apos;);" />
         <ui:Button display-tooltip-when-elided="true" style="width: 40px; height: 40px; max-width: 40px; max-height: 40px; min-width: 40px; min-height: 40px;" />
     </ui:VisualElement>
 </ui:UXML>
