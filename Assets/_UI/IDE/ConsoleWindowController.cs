@@ -39,6 +39,7 @@ public class ConsoleWindowController : WindowComponent
     {
         if (!s_allConsoles.Contains(this)) s_allConsoles.Add(this);
     }
+
     private void OnDisable() => s_allConsoles.Remove(this);
 
     public override void Initialize(VisualElement container, IBaseWindow root)
@@ -95,9 +96,13 @@ public class ConsoleWindowController : WindowComponent
     private void BindRenderTextureToOutput()
     {
         if (_outputVE == null || rendererManager.RenderTex == null) return;
+
+        int displayWidth = rendererManager.DisplayTextureWidth > 0 ? rendererManager.DisplayTextureWidth : rendererManager.RenderTex.width;
+        int displayHeight = rendererManager.DisplayTextureHeight > 0 ? rendererManager.DisplayTextureHeight : rendererManager.RenderTex.height;
+
         _outputVE.style.backgroundImage = new StyleBackground(Background.FromRenderTexture(rendererManager.RenderTex));
         _outputVE.style.unityBackgroundScaleMode = ScaleMode.ScaleAndCrop;
-        _outputVE.style.backgroundSize = new BackgroundSize(rendererManager.RenderTex.width, rendererManager.RenderTex.height);
+        _outputVE.style.backgroundSize = new BackgroundSize(displayWidth, displayHeight);
         _outputVE.style.backgroundPositionX = new BackgroundPosition(BackgroundPositionKeyword.Left);
         _outputVE.style.backgroundPositionY = new BackgroundPosition(BackgroundPositionKeyword.Top);
         _outputVE.style.backgroundColor = Color.black;
@@ -124,8 +129,11 @@ public class ConsoleWindowController : WindowComponent
         float h = _outputVE.resolvedStyle.height;
         if (w <= 1f || h <= 1f) return;
 
-        float pxPerCol = Mathf.Max(1f, (float)rendererManager.RenderTex.width / Mathf.Max(1, stateManager.viewportWidth));
-        float pxPerRow = Mathf.Max(1f, (float)rendererManager.RenderTex.height / Mathf.Max(1, stateManager.viewportHeight));
+        float displayWidth = Mathf.Max(1f, rendererManager.DisplayTextureWidth);
+        float displayHeight = Mathf.Max(1f, rendererManager.DisplayTextureHeight);
+
+        float pxPerCol = displayWidth / Mathf.Max(1, stateManager.viewportWidth);
+        float pxPerRow = displayHeight / Mathf.Max(1, stateManager.viewportHeight);
 
         int desiredCols = Mathf.Clamp(Mathf.FloorToInt(w / pxPerCol), minViewportWidth, maxViewportWidth);
         int desiredRows = Mathf.Clamp(Mathf.FloorToInt(h / pxPerRow), minViewportHeight, maxViewportHeight);
@@ -206,18 +214,22 @@ public class ConsoleWindowController : WindowComponent
     public Vector2Int GetCursorLocationForMouse(Vector2 currentMousePosition)
     {
         if (_outputVE == null || rendererManager.RenderTex == null) return Vector2Int.zero;
+
         float elemW = _outputVE.resolvedStyle.width;
         float elemH = _outputVE.resolvedStyle.height;
         if (elemW <= 0 || elemH <= 0) return Vector2Int.zero;
 
+        float displayWidth = Mathf.Max(1f, rendererManager.DisplayTextureWidth);
+        float displayHeight = Mathf.Max(1f, rendererManager.DisplayTextureHeight);
+
         float pixelX = currentMousePosition.x * elemW;
         float pixelY = (1f - currentMousePosition.y) * elemH;
-        float textureU = Mathf.Clamp01(pixelX / rendererManager.RenderTex.width);
-        float textureV = Mathf.Clamp01(1f - (pixelY / rendererManager.RenderTex.height));
+        float textureU = Mathf.Clamp01(pixelX / displayWidth);
+        float textureV = Mathf.Clamp01(1f - (pixelY / displayHeight));
 
-        int r = Mathf.Max(0, Mathf.Min(stateManager.lines.Count - 1 - stateManager.verticalScroll, (int)((1 - textureV) * stateManager.viewportHeight)));
+        int r = Mathf.Max(0, Mathf.Min(stateManager.lines.Count - 1 - stateManager.verticalScroll, (int)((1f - textureV) * stateManager.viewportHeight)));
         int padding = stateManager.GetLineCountPadding();
-        int c = Mathf.Max(0, Mathf.Min(stateManager.lines[r + stateManager.verticalScroll].Length, (int)(textureU * stateManager.viewportWidth + .5) - padding));
+        int c = Mathf.Max(0, Mathf.Min(stateManager.lines[r + stateManager.verticalScroll].Length, (int)(textureU * stateManager.viewportWidth + .5f) - padding));
 
         return new Vector2Int(r, c);
     }

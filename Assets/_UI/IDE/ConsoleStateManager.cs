@@ -11,6 +11,7 @@ public class ConsoleStateManager : MonoBehaviour
     public bool allowScrolling = true;
     public bool allowNewLines = true;
     public bool readOnly = false;
+    [Min(0)] public int extraLeftPaddingColumns = 0;
 
     [Header("Current State")]
     public List<string> lines = new List<string>();
@@ -38,6 +39,7 @@ public class ConsoleStateManager : MonoBehaviour
 
     public void Initialize()
     {
+        extraLeftPaddingColumns = Mathf.Max(0, extraLeftPaddingColumns);
         if (lines.Count == 0) lines.Add("");
         NotifyStateChanged();
     }
@@ -47,10 +49,20 @@ public class ConsoleStateManager : MonoBehaviour
         OnStateChanged?.Invoke();
     }
 
-    public int GetLineCountPadding()
+    public int GetLeftGutterPadding()
+    {
+        return Mathf.Max(0, extraLeftPaddingColumns);
+    }
+
+    public int GetLineNumberPadding()
     {
         if (!showLineNumbers) return 0;
         return (lines.Count + "").Length + 2;
+    }
+
+    public int GetLineCountPadding()
+    {
+        return GetLeftGutterPadding() + GetLineNumberPadding();
     }
 
     public int GetLineLength(int row)
@@ -120,7 +132,6 @@ public class ConsoleStateManager : MonoBehaviour
     {
         if (transactionPointer < 0) return;
         Transaction previous = mutations[transactionPointer];
-        // Note: Transaction class needs to be updated to accept ConsoleStateManager instead of ConsoleController
         previous.Revert(this);
         transactionPointer--;
         AdjustScrollToCursor();
@@ -160,6 +171,7 @@ public class ConsoleStateManager : MonoBehaviour
             horizontalScroll = 0;
             return;
         }
+
         if (verticalScroll + viewportHeight - 1 < cursorRow)
             verticalScroll = cursorRow - viewportHeight + 1;
         if (verticalScroll > cursorRow)
