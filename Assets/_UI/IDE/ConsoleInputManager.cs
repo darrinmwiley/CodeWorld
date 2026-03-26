@@ -145,7 +145,7 @@ public class ConsoleInputManager : MonoBehaviour
 
     private void OnMouseDown()
     {
-        windowController.BringToFront();
+        windowController.FocusFromInteraction();
         Vector2Int loc = windowController.GetCursorLocationForMouse(mouseListener.currentMousePosition);
         stateManager.dragStart = new Vector2Int(loc.x + stateManager.verticalScroll, loc.y + stateManager.horizontalScroll);
         stateManager.dragCurrent = stateManager.dragStart;

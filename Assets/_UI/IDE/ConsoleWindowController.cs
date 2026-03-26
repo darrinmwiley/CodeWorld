@@ -80,8 +80,7 @@ public class ConsoleWindowController : WindowComponent
         _outputVE.RegisterCallback<PointerDownEvent>(evt =>
         {
             if (evt.button != (int)MouseButton.LeftMouse) return;
-            FocusThisConsole();
-            BringToFront();
+            FocusFromInteraction();
             evt.StopPropagation();
         });
 
@@ -180,10 +179,11 @@ public class ConsoleWindowController : WindowComponent
         }
     }
 
-    private void FocusThisConsole()
+    public void FocusFromInteraction()
     {
         foreach (var c in s_allConsoles) if (c != null && c != this) c.DefocusInternal();
         IsFocused = true;
+        BringToFront();
         _outputVE?.Focus();
         UnityEngine.Cursor.lockState = CursorLockMode.None;
         UnityEngine.Cursor.visible = true;
