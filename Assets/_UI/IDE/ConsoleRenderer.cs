@@ -580,11 +580,14 @@ public class ConsoleRenderer : MonoBehaviour
 
         for (int row = 0; row < stateManager.viewportHeight; row++)
         {
-            bool hasLine = stateManager.verticalScroll + row < stateManager.lines.Count;
-            SetCellColor(row, 0, hasLine ? new Color(.15f, .15f, .15f) : Color.black);
+            int lineIndex = stateManager.verticalScroll + row;
+            bool hasLine = lineIndex < stateManager.lines.Count;
+            bool isLocked = hasLine && stateManager.IsLineLocked(lineIndex);
+
+            SetCellColor(row, 0, isLocked ? new Color(.15f, .15f, .15f) : Color.black);
             SetCellTextColor(row, 0, Color.white);
-            SetChar(row, 0, hasLine ? LOCK_GLYPH_SENTINEL : ' ');
-            _lockGlyphVisibleByRow[row] = hasLine;
+            SetChar(row, 0, isLocked ? LOCK_GLYPH_SENTINEL : ' ');
+            _lockGlyphVisibleByRow[row] = isLocked;
         }
     }
 
@@ -605,9 +608,9 @@ public class ConsoleRenderer : MonoBehaviour
                 if (lineNumber >= 0 &&
                     lineNumber < stateManager.lines.Count &&
                     contentColumn >= 0 &&
-                    contentColumn < stateManager.lines[lineNumber].Length)
+                    contentColumn < stateManager.GetLineLength(lineNumber))
                 {
-                    SetChar(row, col, stateManager.lines[lineNumber][contentColumn]);
+                    SetChar(row, col, stateManager.GetLineContent(lineNumber)[contentColumn]);
                 }
                 else
                 {
@@ -677,7 +680,7 @@ public class ConsoleRenderer : MonoBehaviour
             if (r > r2)
                 break;
 
-            if (r >= 0 && r < stateManager.lines.Count && c <= stateManager.lines[r].Length)
+            if (r >= 0 && r < stateManager.lines.Count && c <= stateManager.GetLineLength(r))
             {
                 int viewportR = r - stateManager.verticalScroll;
                 int viewportC = c - stateManager.horizontalScroll + stateManager.GetLineCountPadding();
@@ -691,7 +694,7 @@ public class ConsoleRenderer : MonoBehaviour
                 }
             }
 
-            if (r >= 0 && r < stateManager.lines.Count && c <= stateManager.lines[r].Length - 1)
+            if (r >= 0 && r < stateManager.lines.Count && c <= stateManager.GetLineLength(r) - 1)
             {
                 c++;
             }

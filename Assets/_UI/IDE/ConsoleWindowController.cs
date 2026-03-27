@@ -229,7 +229,7 @@ public class ConsoleWindowController : WindowComponent
 
         int r = Mathf.Max(0, Mathf.Min(stateManager.lines.Count - 1 - stateManager.verticalScroll, (int)((1f - textureV) * stateManager.viewportHeight)));
         int padding = stateManager.GetLineCountPadding();
-        int c = Mathf.Max(0, Mathf.Min(stateManager.lines[r + stateManager.verticalScroll].Length, (int)(textureU * stateManager.viewportWidth + .5f) - padding));
+        int c = Mathf.Max(0, Mathf.Min(stateManager.GetLineLength(r + stateManager.verticalScroll), (int)(textureU * stateManager.viewportWidth + .5f) - padding));
 
         return new Vector2Int(r, c);
     }

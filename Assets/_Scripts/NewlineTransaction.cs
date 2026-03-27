@@ -9,6 +9,11 @@ public class NewlineTransaction : Transaction
     ConsoleState preState;
     ConsoleState postState;
 
+    public bool CanApply(ConsoleStateManager console)
+    {
+        return console != null && console.CanApplyNewline();
+    }
+
     public void Apply(ConsoleStateManager console)
     {
         if(preState == null)

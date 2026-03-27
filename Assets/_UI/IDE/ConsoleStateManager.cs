@@ -5,6 +5,27 @@ using UnityEngine;
 
 public class ConsoleStateManager : MonoBehaviour
 {
+    [Serializable]
+    public struct Line
+    {
+        public string content;
+        public bool locked;
+
+        public Line(string content, bool locked)
+        {
+            this.content = content ?? string.Empty;
+            this.locked = locked;
+        }
+
+        public int Length => string.IsNullOrEmpty(content) ? 0 : content.Length;
+
+        public char this[int index] => (content ?? string.Empty)[index];
+
+        public override string ToString() => content ?? string.Empty;
+    }
+
+    public const string LockPrefix = "//LOCK";
+
     [Header("Console Settings")]
     public int spacesPerTab = 4;
     public bool showLineNumbers = true;
@@ -14,7 +35,7 @@ public class ConsoleStateManager : MonoBehaviour
     [Min(0)] public int extraLeftPaddingColumns = 0;
 
     [Header("Current State")]
-    public List<string> lines = new List<string>();
+    public List<Line> lines = new List<Line>();
     public int viewportWidth = 80;
     public int viewportHeight = 24;
 
@@ -31,16 +52,17 @@ public class ConsoleStateManager : MonoBehaviour
 
     private string copyBuffer;
 
-    private List<Transaction> mutations = new List<Transaction>();
+    private readonly List<Transaction> mutations = new List<Transaction>();
     private int transactionPointer = -1;
+    private int documentVersion;
 
-    // Events to notify the Renderer
     public event Action OnStateChanged;
 
     public void Initialize()
     {
         extraLeftPaddingColumns = Mathf.Max(0, extraLeftPaddingColumns);
-        if (lines.Count == 0) lines.Add("");
+        NormalizeAndEnsureLines();
+        ClampCursorState();
         NotifyStateChanged();
     }
 
@@ -68,7 +90,19 @@ public class ConsoleStateManager : MonoBehaviour
     public int GetLineLength(int row)
     {
         if (row < 0 || row >= lines.Count) return 0;
-        return lines[row]?.Length ?? 0;
+        return lines[row].Length;
+    }
+
+    public string GetLineContent(int row)
+    {
+        if (row < 0 || row >= lines.Count) return string.Empty;
+        return lines[row].content ?? string.Empty;
+    }
+
+    public bool IsLineLocked(int row)
+    {
+        if (row < 0 || row >= lines.Count) return false;
+        return lines[row].locked;
     }
 
     public void Save(string fileName)
@@ -78,7 +112,8 @@ public class ConsoleStateManager : MonoBehaviour
             string filePath = Path.Combine(Application.persistentDataPath, fileName);
             using (StreamWriter writer = new StreamWriter(filePath))
             {
-                foreach (string line in lines) writer.WriteLine(line);
+                for (int i = 0; i < lines.Count; i++)
+                    writer.WriteLine(ToSerializedString(lines[i]));
             }
             Debug.Log("File saved successfully: " + filePath);
         }
@@ -90,18 +125,36 @@ public class ConsoleStateManager : MonoBehaviour
 
     public void Load(string relativeFilePath)
     {
-        lines = new List<string>();
+        lines = new List<Line>();
         try
         {
             string filePath = Path.Combine(Application.persistentDataPath, relativeFilePath);
-            if (File.Exists(filePath)) lines.AddRange(File.ReadAllLines(filePath));
-            else Debug.LogWarning("File not found: " + filePath);
+            if (File.Exists(filePath))
+            {
+                string[] rawLines = File.ReadAllLines(filePath);
+                for (int i = 0; i < rawLines.Length; i++)
+                    lines.Add(ParseSerializedLine(rawLines[i]));
+            }
+            else
+            {
+                Debug.LogWarning("File not found: " + filePath);
+            }
         }
         catch (Exception e)
         {
             Debug.LogError("Error loading file: " + e.Message);
         }
-        if (lines.Count == 0) lines.Add("");
+
+        NormalizeAndEnsureLines();
+        cursorRow = 0;
+        cursorCol = 0;
+        visibleCursorCol = 0;
+        verticalScroll = 0;
+        horizontalScroll = 0;
+        ResetDragState();
+        mutations.Clear();
+        transactionPointer = -1;
+        documentVersion = 0;
         NotifyStateChanged();
     }
 
@@ -125,6 +178,7 @@ public class ConsoleStateManager : MonoBehaviour
         isHighlighting = consoleState.isHighlighting;
         dragStart = consoleState.dragStart;
         dragCurrent = consoleState.dragCurrent;
+        ClampCursorState();
         NotifyStateChanged();
     }
 
@@ -150,15 +204,30 @@ public class ConsoleStateManager : MonoBehaviour
 
     public void ApplyTransaction(Transaction t)
     {
+        if (t == null) return;
+
         AdjustScrollToCursor();
-        if (t.IsMutation())
+
+        if (!t.CanApply(this))
+        {
+            AdjustScrollToCursor();
+            NotifyStateChanged();
+            return;
+        }
+
+        int versionBefore = documentVersion;
+        t.Apply(this);
+        bool changed = documentVersion != versionBefore;
+
+        if (changed && t.IsMutation())
         {
             if (transactionPointer < mutations.Count - 1)
                 mutations.RemoveRange(transactionPointer + 1, mutations.Count - transactionPointer - 1);
+
             mutations.Add(t);
             transactionPointer++;
         }
-        t.Apply(this);
+
         AdjustScrollToCursor();
         NotifyStateChanged();
     }
@@ -184,25 +253,175 @@ public class ConsoleStateManager : MonoBehaviour
             horizontalScroll = Mathf.Max(0, visibleCursorCol - 4);
     }
 
+    public bool CanApplyInsertion(string[] insertedLines)
+    {
+        if (insertedLines == null || insertedLines.Length == 0)
+            return false;
+
+        if (TryGetOrderedSelection(out int r1, out int c1, out int r2, out int c2Exclusive))
+        {
+            if (!CanDeleteSelection(r1, c1, r2, c2Exclusive))
+                return false;
+
+            return !WouldSelectionDeleteLeaveLockedLineAtCursor(r1, c1, r2, c2Exclusive);
+        }
+
+        return !IsLineLocked(cursorRow);
+    }
+
+    public bool CanApplyNewline()
+    {
+        if (!allowNewLines)
+            return false;
+
+        if (TryGetOrderedSelection(out int r1, out int c1, out int r2, out int c2Exclusive))
+        {
+            if (!CanDeleteSelection(r1, c1, r2, c2Exclusive))
+                return false;
+
+            return !WouldSelectionDeleteLeaveLockedLineAtCursor(r1, c1, r2, c2Exclusive);
+        }
+
+        if (!IsLineLocked(cursorRow))
+            return true;
+
+        int lineLength = GetLineLength(cursorRow);
+        return visibleCursorCol == 0 || visibleCursorCol == lineLength;
+    }
+
+    public bool CanApplyDeletion(bool isBackspace)
+    {
+        if (TryGetOrderedSelection(out int r1, out int c1, out int r2, out int c2Exclusive))
+            return CanDeleteSelection(r1, c1, r2, c2Exclusive);
+
+        if (isBackspace)
+        {
+            if (visibleCursorCol > 0)
+                return !IsLineLocked(cursorRow);
+
+            if (cursorRow <= 0)
+                return false;
+
+            bool previousLocked = IsLineLocked(cursorRow - 1);
+            bool currentLocked = IsLineLocked(cursorRow);
+            int previousLength = GetLineLength(cursorRow - 1);
+            int currentLength = GetLineLength(cursorRow);
+
+            if (currentLocked)
+                return previousLength == 0 && !previousLocked;
+
+            if (previousLocked)
+                return currentLength == 0 && !currentLocked;
+
+            return !currentLocked;
+        }
+
+        int currentLineLength = GetLineLength(cursorRow);
+        if (visibleCursorCol < currentLineLength)
+            return !IsLineLocked(cursorRow);
+
+        if (cursorRow >= lines.Count - 1)
+            return false;
+
+        bool currentLineLocked = IsLineLocked(cursorRow);
+        bool nextLineLocked = IsLineLocked(cursorRow + 1);
+        int nextLength = GetLineLength(cursorRow + 1);
+
+        if (currentLineLocked)
+            return nextLength == 0;
+
+        if (nextLineLocked)
+            return nextLength == 0;
+
+        return true;
+    }
+
     public void NewLine()
     {
         if (isHighlighting) DeleteHighlight();
-        lines.Insert(cursorRow + 1, lines[cursorRow].Substring(visibleCursorCol));
-        lines[cursorRow] = lines[cursorRow].Substring(0, visibleCursorCol);
+
+        string currentContent = GetLineContent(cursorRow);
+        bool currentLocked = IsLineLocked(cursorRow);
+        int lineLength = currentContent.Length;
+
+        if (currentLocked)
+        {
+            if (visibleCursorCol == 0)
+            {
+                lines.Insert(cursorRow, new Line(string.Empty, false));
+                cursorRow++;
+                visibleCursorCol = 0;
+                cursorCol = 0;
+                MarkDocumentChanged();
+                AdjustScrollToCursor();
+                return;
+            }
+
+            if (visibleCursorCol == lineLength)
+            {
+                lines.Insert(cursorRow + 1, new Line(string.Empty, false));
+                cursorRow++;
+                visibleCursorCol = 0;
+                cursorCol = 0;
+                MarkDocumentChanged();
+                AdjustScrollToCursor();
+                return;
+            }
+        }
+
+        string before = currentContent.Substring(0, visibleCursorCol);
+        string after = currentContent.Substring(visibleCursorCol);
+
+        lines[cursorRow] = new Line(before, false);
+        lines.Insert(cursorRow + 1, new Line(after, false));
+
         cursorRow++;
-        visibleCursorCol = cursorCol = 0;
+        visibleCursorCol = 0;
+        cursorCol = 0;
+        MarkDocumentChanged();
         AdjustScrollToCursor();
     }
 
     public void RevertNewLine()
     {
-        lines[cursorRow - 1] += lines[cursorRow];
+        if (cursorRow <= 0 || cursorRow >= lines.Count)
+            return;
+
+        string previousContent = GetLineContent(cursorRow - 1);
+        string currentContent = GetLineContent(cursorRow);
+        bool previousLocked = IsLineLocked(cursorRow - 1);
+        bool currentLocked = IsLineLocked(cursorRow);
+
+        if (!previousLocked && previousContent.Length == 0 && currentLocked)
+        {
+            lines.RemoveAt(cursorRow - 1);
+            cursorRow--;
+            MarkDocumentChanged();
+            return;
+        }
+
+        if (previousLocked && !currentLocked && currentContent.Length == 0)
+        {
+            lines.RemoveAt(cursorRow);
+            cursorRow--;
+            MarkDocumentChanged();
+            return;
+        }
+
+        string merged = previousContent + currentContent;
+        bool locked = previousLocked;
+        lines[cursorRow - 1] = new Line(merged, locked);
         lines.RemoveAt(cursorRow);
+        MarkDocumentChanged();
     }
 
     public void InsertLines(string[] strs)
     {
+        if (strs == null || strs.Length == 0)
+            return;
+
         if (isHighlighting) DeleteHighlight();
+
         for (int i = 0; i < strs.Length; i++)
         {
             OnKeysTyped(strs[i]);
@@ -212,21 +431,57 @@ public class ConsoleStateManager : MonoBehaviour
 
     public void OnKeysTyped(string str)
     {
+        if (string.IsNullOrEmpty(str))
+            return;
+
         if (isHighlighting) DeleteHighlight();
-        lines[cursorRow] = lines[cursorRow].Insert(visibleCursorCol, str);
+
+        string line = GetLineContent(cursorRow);
+        line = line.Insert(visibleCursorCol, str);
+        lines[cursorRow] = new Line(line, IsLineLocked(cursorRow));
         visibleCursorCol += str.Length;
         cursorCol = visibleCursorCol;
+        MarkDocumentChanged();
     }
 
     public void DeleteRegion(int r1, int c1, int r2, int c2)
     {
-        lines[r1] = lines[r1].Substring(0, c1) + lines[r2].Substring(c2 + 1);
-        lines.RemoveRange(r1 + 1, r2 - r1);
+        ClampRegion(ref r1, ref c1, ref r2, ref c2);
+
+        string startLine = GetLineContent(r1);
+        string endLine = GetLineContent(r2);
+
+        string prefix = startLine.Substring(0, Mathf.Clamp(c1, 0, startLine.Length));
+        int suffixStart = Mathf.Clamp(c2 + 1, 0, endLine.Length);
+        string suffix = endLine.Substring(suffixStart);
+        string newContent = prefix + suffix;
+
+        bool newLocked;
+        if (r1 == r2)
+        {
+            newLocked = IsLineLocked(r1);
+        }
+        else
+        {
+            newLocked = (IsLineLocked(r1) && newContent == startLine) ||
+                        (IsLineLocked(r2) && newContent == endLine);
+        }
+
+        lines[r1] = new Line(newContent, newLocked);
+
+        if (r2 > r1)
+            lines.RemoveRange(r1 + 1, r2 - r1);
+
+        if (lines.Count == 0)
+            lines.Add(new Line(string.Empty, false));
+
+        MarkDocumentChanged();
     }
 
     public string CaptureDeletion(bool isBackspace = true)
     {
-        string deleted = "";
+        string deleted = string.Empty;
+
         if (isHighlighting)
         {
             deleted = GetHighlightedText();
@@ -234,41 +489,57 @@ public class ConsoleStateManager : MonoBehaviour
         }
         else if (isBackspace)
         {
-            if (cursorCol != 0)
+            if (visibleCursorCol != 0)
             {
                 bool canBackspaceTab = CanBackspaceTab();
                 do
                 {
-                    string line = lines[cursorRow];
+                    string line = GetLineContent(cursorRow);
                     deleted += line[visibleCursorCol - 1];
-                    lines[cursorRow] = line.Substring(0, visibleCursorCol - 1) + line.Substring(visibleCursorCol);
+                    line = line.Substring(0, visibleCursorCol - 1) + line.Substring(visibleCursorCol);
+                    lines[cursorRow] = new Line(line, IsLineLocked(cursorRow));
                     cursorCol = --visibleCursorCol;
-                } while (canBackspaceTab && visibleCursorCol % spacesPerTab != 0);
+                    MarkDocumentChanged();
+                }
+                while (canBackspaceTab && visibleCursorCol % spacesPerTab != 0);
             }
             else if (cursorRow != 0)
             {
-                int newCursorCol = lines[cursorRow - 1].Length;
-                lines[cursorRow - 1] += lines[cursorRow];
+                int newCursorCol = GetLineLength(cursorRow - 1);
+                string previousContent = GetLineContent(cursorRow - 1);
+                string currentContent = GetLineContent(cursorRow);
+                string merged = previousContent + currentContent;
+                bool locked = IsLineLocked(cursorRow - 1) ||
+                              (previousContent.Length == 0 && IsLineLocked(cursorRow));
+                lines[cursorRow - 1] = new Line(merged, locked);
                 lines.RemoveAt(cursorRow);
                 cursorRow--;
                 visibleCursorCol = cursorCol = newCursorCol;
                 deleted += '\n';
+                MarkDocumentChanged();
             }
         }
         else
         {
-            if (visibleCursorCol != lines[cursorRow + verticalScroll].Length)
+            if (visibleCursorCol != GetLineLength(cursorRow))
             {
-                deleted += lines[cursorRow][visibleCursorCol];
-                lines[cursorRow] = lines[cursorRow].Remove(visibleCursorCol, 1);
+                string line = GetLineContent(cursorRow);
+                deleted += line[visibleCursorCol];
+                line = line.Remove(visibleCursorCol, 1);
+                lines[cursorRow] = new Line(line, IsLineLocked(cursorRow));
+                MarkDocumentChanged();
             }
             else if (cursorRow < lines.Count - 1)
             {
                 deleted = "\n";
-                lines[cursorRow] += lines[cursorRow + 1];
+                string merged = GetLineContent(cursorRow) + GetLineContent(cursorRow + 1);
+                bool locked = IsLineLocked(cursorRow);
+                lines[cursorRow] = new Line(merged, locked);
                 lines.RemoveAt(cursorRow + 1);
+                MarkDocumentChanged();
             }
         }
+
         AdjustScrollToCursor();
         NotifyStateChanged();
         return deleted;
@@ -276,15 +547,13 @@ public class ConsoleStateManager : MonoBehaviour
 
     public void DeleteHighlight()
     {
-        if (!isHighlighting) return;
-        int r1 = dragStart.x, c1 = dragStart.y, r2 = dragCurrent.x, c2 = dragCurrent.y;
-        if (dragCurrent.x < dragStart.x || (dragCurrent.x == dragStart.x && dragCurrent.y < dragStart.y))
-        {
-            r1 = dragCurrent.x; c1 = dragCurrent.y; r2 = dragStart.x; c2 = dragStart.y;
-        }
-        DeleteRegion(r1, c1, r2, c2 - 1);
+        if (!TryGetOrderedSelection(out int r1, out int c1, out int r2, out int c2Exclusive))
+            return;
+
+        DeleteRegion(r1, c1, r2, c2Exclusive - 1);
         cursorRow = r1;
-        cursorCol = visibleCursorCol = c1;
+        cursorCol = c1;
+        visibleCursorCol = c1;
         ResetDragState();
         NotifyStateChanged();
     }
@@ -298,31 +567,203 @@ public class ConsoleStateManager : MonoBehaviour
 
     public string GetHighlightedText()
     {
-        int r1 = dragStart.x, c1 = dragStart.y, r2 = dragCurrent.x, c2 = dragCurrent.y;
-        if (dragCurrent.x < dragStart.x || (dragCurrent.x == dragStart.x && dragCurrent.y < dragStart.y))
-        {
-            r1 = dragCurrent.x; c1 = dragCurrent.y; r2 = dragStart.x; c2 = dragStart.y;
-        }
-        return GetRegion(r1, c1, r2, c2 - 1);
-    }
+        if (!TryGetOrderedSelection(out int r1, out int c1, out int r2, out int c2Exclusive))
+            return string.Empty;
 
-    private string GetRegion(int r1, int c1, int r2, int c2)
-    {
-        if (r1 == r2) return lines[r1].Substring(c1, c2 - c1 + 1);
-        string region = lines[r1].Substring(c1);
-        for (int i = r1 + 1; i < r2; i++) region += "\n" + lines[i];
-        region += "\n" + lines[r2].Substring(0, c2 + 1);
-        return region;
+        return GetRegion(r1, c1, r2, c2Exclusive - 1);
     }
 
     public bool CanBackspaceTab()
     {
         if (visibleCursorCol == 0) return false;
+        string line = GetLineContent(cursorRow);
         for (int i = 0; i < visibleCursorCol; i++)
-            if (lines[cursorRow][i] != ' ') return false;
+            if (line[i] != ' ') return false;
         return true;
     }
 
     public void SetCopyBuffer(string text) => copyBuffer = text;
     public string GetCopyBuffer() => copyBuffer;
+
+    private bool TryGetOrderedSelection(out int r1, out int c1, out int r2, out int c2Exclusive)
+    {
+        r1 = c1 = r2 = c2Exclusive = 0;
+
+        if (!isHighlighting)
+            return false;
+
+        Vector2Int start = dragStart;
+        Vector2Int end = dragCurrent;
+
+        if (end.x < start.x || (end.x == start.x && end.y < start.y))
+        {
+            Vector2Int temp = start;
+            start = end;
+            end = temp;
+        }
+
+        r1 = Mathf.Clamp(start.x, 0, Mathf.Max(0, lines.Count - 1));
+        r2 = Mathf.Clamp(end.x, 0, Mathf.Max(0, lines.Count - 1));
+        c1 = Mathf.Clamp(start.y, 0, GetLineLength(r1));
+        c2Exclusive = Mathf.Clamp(end.y, 0, GetLineLength(r2));
+
+        return r1 != r2 || c1 != c2Exclusive;
+    }
+
+    private bool CanDeleteSelection(int r1, int c1, int r2, int c2Exclusive)
+    {
+        if (r1 > r2 || (r1 == r2 && c1 > c2Exclusive))
+            return false;
+
+        for (int row = r1; row <= r2; row++)
+        {
+            if (!IsLineLocked(row))
+                continue;
+
+            int start = row == r1 ? c1 : 0;
+            int endExclusive = row == r2 ? c2Exclusive : GetLineLength(row);
+            if (endExclusive > start)
+                return false;
+        }
+
+        if (r1 != r2)
+        {
+            string prefix = GetLineContent(r1).Substring(0, Mathf.Clamp(c1, 0, GetLineLength(r1)));
+            string suffix = GetLineContent(r2).Substring(Mathf.Clamp(c2Exclusive, 0, GetLineLength(r2)));
+
+            if (IsLineLocked(r1))
+            {
+                bool lockedLinePreservedExactly = prefix == GetLineContent(r1) && suffix.Length == 0;
+                if (!lockedLinePreservedExactly)
+                    return false;
+            }
+
+            if (IsLineLocked(r2))
+            {
+                bool lockedLinePreservedExactly = prefix.Length == 0 && suffix == GetLineContent(r2);
+                if (!lockedLinePreservedExactly)
+                    return false;
+            }
+        }
+
+        return true;
+    }
+
+    private bool WouldSelectionDeleteLeaveLockedLineAtCursor(int r1, int c1, int r2, int c2Exclusive)
+    {
+        if (r1 == r2)
+            return IsLineLocked(r1);
+
+        string prefix = GetLineContent(r1).Substring(0, Mathf.Clamp(c1, 0, GetLineLength(r1)));
+        string suffix = GetLineContent(r2).Substring(Mathf.Clamp(c2Exclusive, 0, GetLineLength(r2)));
+        string newContent = prefix + suffix;
+
+        return (IsLineLocked(r1) && newContent == GetLineContent(r1)) ||
+               (IsLineLocked(r2) && newContent == GetLineContent(r2));
+    }
+
+    private string GetRegion(int r1, int c1, int r2, int c2)
+    {
+        if (r1 == r2)
+        {
+            if (c2 < c1)
+                return string.Empty;
+
+            return GetLineContent(r1).Substring(c1, c2 - c1 + 1);
+        }
+
+        string region = GetLineContent(r1).Substring(c1);
+        for (int i = r1 + 1; i < r2; i++)
+            region += "\n" + GetLineContent(i);
+
+        region += "\n" + GetLineContent(r2).Substring(0, Mathf.Max(0, c2 + 1));
+        return region;
+    }
+
+    private void NormalizeAndEnsureLines()
+    {
+        if (lines == null)
+            lines = new List<Line>();
+
+        for (int i = 0; i < lines.Count; i++)
+        {
+            Line normalized = NormalizeLine(lines[i]);
+            lines[i] = normalized;
+        }
+
+        if (lines.Count == 0)
+            lines.Add(new Line(string.Empty, false));
+    }
+
+    private Line NormalizeLine(Line line)
+    {
+        string content = line.content ?? string.Empty;
+        bool locked = line.locked;
+
+        if (content.StartsWith(LockPrefix, StringComparison.Ordinal))
+        {
+            locked = true;
+            content = content.Substring(LockPrefix.Length);
+        }
+
+        return new Line(content, locked);
+    }
+
+    private Line ParseSerializedLine(string raw)
+    {
+        if (raw == null)
+            raw = string.Empty;
+        if (raw.StartsWith(LockPrefix, StringComparison.Ordinal))
+            return new Line(raw.Substring(LockPrefix.Length), true);
+
+        return new Line(raw, false);
+    }
+
+    private string ToSerializedString(Line line)
+    {
+        string content = line.content ?? string.Empty;
+        return line.locked ? LockPrefix + content : content;
+    }
+
+    private void ClampCursorState()
+    {
+        NormalizeAndEnsureLines();
+
+        cursorRow = Mathf.Clamp(cursorRow, 0, Mathf.Max(0, lines.Count - 1));
+        visibleCursorCol = Mathf.Clamp(visibleCursorCol, 0, GetLineLength(cursorRow));
+        cursorCol = Mathf.Clamp(cursorCol, 0, GetLineLength(cursorRow));
+
+        dragStart = new Vector2Int(
+            Mathf.Clamp(dragStart.x, 0, Mathf.Max(0, lines.Count - 1)),
+            Mathf.Clamp(dragStart.y, 0, GetLineLength(Mathf.Clamp(dragStart.x, 0, Mathf.Max(0, lines.Count - 1)))));
+
+        dragCurrent = new Vector2Int(
+            Mathf.Clamp(dragCurrent.x, 0, Mathf.Max(0, lines.Count - 1)),
+            Mathf.Clamp(dragCurrent.y, 0, GetLineLength(Mathf.Clamp(dragCurrent.x, 0, Mathf.Max(0, lines.Count - 1)))));
+    }
+
+    private void ClampRegion(ref int r1, ref int c1, ref int r2, ref int c2)
+    {
+        r1 = Mathf.Clamp(r1, 0, Mathf.Max(0, lines.Count - 1));
+        r2 = Mathf.Clamp(r2, 0, Mathf.Max(0, lines.Count - 1));
+
+        if (r2 < r1 || (r2 == r1 && c2 < c1))
+        {
+            int tempR = r1;
+            r1 = r2;
+            r2 = tempR;
+
+            int tempC = c1;
+            c1 = c2;
+            c2 = tempC;
+        }
+
+        c1 = Mathf.Clamp(c1, 0, GetLineLength(r1));
+        c2 = Mathf.Clamp(c2, -1, GetLineLength(r2) - 1);
+    }
+
+    private void MarkDocumentChanged()
+    {
+        documentVersion++;
+    }
 }

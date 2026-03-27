@@ -16,6 +16,11 @@ public class InsertTransaction : Transaction
         this.insertion = insertion.Split("\n");
     }
 
+    public bool CanApply(ConsoleStateManager console)
+    {
+        return console != null && console.CanApplyInsertion(insertion);
+    }
+
     public void Apply(ConsoleStateManager console)
     {
         if(preState == null)

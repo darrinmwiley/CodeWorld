@@ -16,6 +16,11 @@ public class DeleteTransaction : Transaction
         this.isBackspace = isBackspace;
     }
 
+    public bool CanApply(ConsoleStateManager console)
+    {
+        return console != null && console.CanApplyDeletion(isBackspace);
+    }
+
     public void Apply(ConsoleStateManager console)
     {
         if(preState == null)
@@ -32,7 +37,7 @@ public class DeleteTransaction : Transaction
         console.SetState(postState);
         console.InsertLines(this.deletion);
     }
-        
+
     public bool IsMutation()
     {
         return true;

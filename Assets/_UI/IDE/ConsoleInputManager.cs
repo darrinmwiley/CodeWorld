@@ -14,11 +14,13 @@ public class ConsoleInputManager : MonoBehaviour
     public float heldKeyTriggerTime = .4f;
 
     private Dictionary<KeyCode, Action> specialKeyPressHandlers;
+    private HashSet<char> excludedInputStringChars;
     private KeyCode latest = KeyCode.None;
     private float latestDownTime = 0;
     private bool isKeyHeld = false;
     private float lastHeldKeyTriggerTime = 0;
     private float lastDragScrollTime = 0;
+    private bool capsLockActive = false;
 
     public void Initialize()
     {
@@ -28,6 +30,12 @@ public class ConsoleInputManager : MonoBehaviour
             mouseListener.AddMouseDownHandler(OnMouseDown);
             mouseListener.AddMouseDragHandler(OnMouseDrag);
         }
+    }
+
+    private void OnGUI()
+    {
+        if (Event.current != null)
+            capsLockActive = Event.current.capsLock;
     }
 
     private void InitKeyHandlers()
@@ -42,20 +50,70 @@ public class ConsoleInputManager : MonoBehaviour
             { KeyCode.UpArrow, OnUpArrowPressed },
             { KeyCode.DownArrow, OnDownArrowPressed },
             { KeyCode.Tab, OnTabPressed },
-            { KeyCode.Delete, OnDeletePressed },
-            { KeyCode.C, () => HandleAlphaShortcut('c', 'C', OnCAction) },
-            { KeyCode.V, () => HandleAlphaShortcut('v', 'V', OnVAction) },
-            { KeyCode.X, () => HandleAlphaShortcut('x', 'X', OnXAction) },
-            { KeyCode.Y, () => HandleAlphaShortcut('y', 'Y', () => stateManager.Redo()) },
-            { KeyCode.Z, () => HandleAlphaShortcut('z', 'Z', () => stateManager.Undo()) },
-            { KeyCode.A, () => HandleAlphaShortcut('a', 'A', SelectAll) },
-            { KeyCode.S, () => HandleAlphaShortcut('s', 'S', () => stateManager.Save("fname.txt")) },
-            { KeyCode.L, () => HandleAlphaShortcut('l', 'L', () => stateManager.Load("fname.txt")) }
+            { KeyCode.Delete, OnDeletePressed }
         };
+
+        excludedInputStringChars = new HashSet<char>
+        {
+            (char)0,
+            (char)8,
+            (char)9,
+            (char)10,
+            (char)13
+        };
+
+        RegisterAlphaShortcut(KeyCode.C, 'c', 'C', OnCAction);
+        RegisterAlphaShortcut(KeyCode.V, 'v', 'V', OnVAction);
+        RegisterAlphaShortcut(KeyCode.X, 'x', 'X', OnXAction);
+        RegisterAlphaShortcut(KeyCode.Y, 'y', 'Y', () => stateManager.Redo());
+        RegisterAlphaShortcut(KeyCode.Z, 'z', 'Z', () => stateManager.Undo());
+        RegisterAlphaShortcut(KeyCode.A, 'a', 'A', SelectAll);
+        RegisterAlphaShortcut(KeyCode.S, 's', 'S', () => stateManager.Save("fname.txt"));
+        RegisterAlphaShortcut(KeyCode.L, 'l', 'L', () => stateManager.Load("fname.txt"));
+
+        RegisterPrintableKey(KeyCode.Space, ' ', ' ');
+        RegisterPrintableKey(KeyCode.Alpha1, '1', '!');
+        RegisterPrintableKey(KeyCode.Alpha2, '2', '@');
+        RegisterPrintableKey(KeyCode.Alpha3, '3', '#');
+        RegisterPrintableKey(KeyCode.Alpha4, '4', '$');
+        RegisterPrintableKey(KeyCode.Alpha5, '5', '%');
+        RegisterPrintableKey(KeyCode.Alpha6, '6', '^');
+        RegisterPrintableKey(KeyCode.Alpha7, '7', '&');
+        RegisterPrintableKey(KeyCode.Alpha8, '8', '*');
+        RegisterPrintableKey(KeyCode.Alpha9, '9', '(');
+        RegisterPrintableKey(KeyCode.Alpha0, '0', ')');
+        RegisterPrintableKey(KeyCode.Minus, '-', '_');
+        RegisterPrintableKey(KeyCode.Equals, '=', '+');
+        RegisterPrintableKey(KeyCode.LeftBracket, '[', '{');
+        RegisterPrintableKey(KeyCode.RightBracket, ']', '}');
+        RegisterPrintableKey(KeyCode.Backslash, '\\', '|');
+        RegisterPrintableKey(KeyCode.Semicolon, ';', ':');
+        RegisterPrintableKey(KeyCode.Quote, '\'', '"');
+        RegisterPrintableKey(KeyCode.Comma, ',', '<');
+        RegisterPrintableKey(KeyCode.Period, '.', '>');
+        RegisterPrintableKey(KeyCode.Slash, '/', '?');
+        RegisterPrintableKey(KeyCode.BackQuote, '`', '~');
+    }
+
+    private void RegisterAlphaShortcut(KeyCode key, char lower, char upper, Action ctrlAction)
+    {
+        specialKeyPressHandlers[key] = () => HandleAlphaShortcut(lower, upper, ctrlAction);
+        excludedInputStringChars.Add(lower);
+        excludedInputStringChars.Add(upper);
+    }
+
+    private void RegisterPrintableKey(KeyCode key, char normal, char shifted)
+    {
+        specialKeyPressHandlers[key] = () => HandlePrintableKey(normal, shifted);
+        excludedInputStringChars.Add(normal);
+        excludedInputStringChars.Add(shifted);
     }
 
     private void Update()
     {
+        if (Input.GetKeyDown(KeyCode.CapsLock))
+            capsLockActive = !capsLockActive;
+
         if (windowController.escapeDefocusesAll && Input.GetKeyDown(KeyCode.Escape))
         {
             ConsoleWindowController.DefocusAllAndRecaptureMouse(windowController.escapeCursorLockMode, windowController.escapeCursorVisible);
@@ -78,10 +136,9 @@ public class ConsoleInputManager : MonoBehaviour
     {
         if (stateManager.readOnly) return;
 
-        HashSet<char> excluded = new HashSet<char>() { (char)8, (char)10, (char)13, 'c', 'C', 'v', 'V', 'x', 'X', 'y', 'Y', 'z', 'Z', 'a', 'A', 's', 'S', 'l', 'L' };
         foreach (char ch in Input.inputString)
         {
-            if (!excluded.Contains(ch))
+            if (!excludedInputStringChars.Contains(ch))
             {
                 OnCharTyped(ch);
                 latest = KeyCode.None;
@@ -185,7 +242,7 @@ public class ConsoleInputManager : MonoBehaviour
         if (stateManager.cursorRow > 0)
         {
             stateManager.cursorRow--;
-            stateManager.visibleCursorCol = Mathf.Min(stateManager.cursorCol, stateManager.lines[stateManager.cursorRow].Length);
+            stateManager.visibleCursorCol = Mathf.Min(stateManager.cursorCol, stateManager.GetLineLength(stateManager.cursorRow));
             stateManager.AdjustScrollToCursor();
             stateManager.NotifyStateChanged();
         }
@@ -197,7 +254,7 @@ public class ConsoleInputManager : MonoBehaviour
         if (stateManager.cursorRow < stateManager.lines.Count - 1)
         {
             stateManager.cursorRow++;
-            stateManager.visibleCursorCol = Mathf.Min(stateManager.cursorCol, stateManager.lines[stateManager.cursorRow].Length);
+            stateManager.visibleCursorCol = Mathf.Min(stateManager.cursorCol, stateManager.GetLineLength(stateManager.cursorRow));
             stateManager.AdjustScrollToCursor();
             stateManager.NotifyStateChanged();
         }
@@ -210,7 +267,7 @@ public class ConsoleInputManager : MonoBehaviour
         else if (stateManager.cursorRow != 0)
         {
             stateManager.cursorRow--;
-            stateManager.visibleCursorCol = stateManager.lines[stateManager.cursorRow].Length;
+            stateManager.visibleCursorCol = stateManager.GetLineLength(stateManager.cursorRow);
         }
         stateManager.cursorCol = stateManager.visibleCursorCol;
         stateManager.AdjustScrollToCursor();
@@ -220,7 +277,7 @@ public class ConsoleInputManager : MonoBehaviour
     private void OnRightArrowPressed()
     {
         stateManager.isHighlighting = false;
-        if (stateManager.visibleCursorCol != stateManager.lines[stateManager.cursorRow].Length) stateManager.visibleCursorCol++;
+        if (stateManager.visibleCursorCol != stateManager.GetLineLength(stateManager.cursorRow)) stateManager.visibleCursorCol++;
         else if (stateManager.cursorRow < stateManager.lines.Count - 1)
         {
             stateManager.cursorRow++;
@@ -246,11 +303,44 @@ public class ConsoleInputManager : MonoBehaviour
 
     private void HandleAlphaShortcut(char lower, char upper, Action ctrlAction)
     {
-        if (Input.GetKey(KeyCode.LeftControl) || Input.GetKey(KeyCode.RightControl)) ctrlAction?.Invoke();
-        else OnCharTyped(IsUpperCase() ? upper : lower);
+        if (Input.GetKey(KeyCode.LeftControl) || Input.GetKey(KeyCode.RightControl))
+        {
+            ctrlAction?.Invoke();
+            return;
+        }
+
+        OnCharTyped(GetResolvedAlphaShortcutChar(lower, upper));
     }
 
-    private bool IsUpperCase() => (Input.GetKey(KeyCode.LeftControl) || Input.GetKey(KeyCode.RightControl)) ^ (Input.GetKey(KeyCode.LeftShift) || Input.GetKey(KeyCode.RightShift));
+    private char GetResolvedAlphaShortcutChar(char lower, char upper)
+    {
+        foreach (char ch in Input.inputString)
+        {
+            if (char.ToLowerInvariant(ch) == char.ToLowerInvariant(lower))
+                return ch;
+        }
+
+        bool shift = Input.GetKey(KeyCode.LeftShift) || Input.GetKey(KeyCode.RightShift);
+        return shift ? upper : lower;
+    }
+    
+    private void HandlePrintableKey(char normal, char shifted)
+    {
+        bool shift = Input.GetKey(KeyCode.LeftShift) || Input.GetKey(KeyCode.RightShift);
+        OnCharTyped(shift ? shifted : normal);
+    }
+
+    private bool ShouldUseUppercaseLetter()
+    {
+        bool shift = Input.GetKey(KeyCode.LeftShift) || Input.GetKey(KeyCode.RightShift);
+        return shift ^ capsLockActive;
+    }
+
+    private bool ShouldUseShiftedPrintable()
+    {
+        bool shift = Input.GetKey(KeyCode.LeftShift) || Input.GetKey(KeyCode.RightShift);
+        return shift ^ capsLockActive;
+    }
 
     private void OnCAction() => stateManager.SetCopyBuffer(stateManager.GetHighlightedText());
     private void OnVAction() => stateManager.ApplyTransaction(new InsertTransaction(stateManager.GetCopyBuffer()));
@@ -267,7 +357,7 @@ public class ConsoleInputManager : MonoBehaviour
     {
         stateManager.isHighlighting = true;
         stateManager.dragStart = new Vector2Int(0, 0);
-        stateManager.dragCurrent = new Vector2Int(stateManager.lines.Count - 1, stateManager.lines[stateManager.lines.Count - 1].Length);
+        stateManager.dragCurrent = new Vector2Int(stateManager.lines.Count - 1, stateManager.GetLineLength(stateManager.lines.Count - 1));
         stateManager.NotifyStateChanged();
     }
 
