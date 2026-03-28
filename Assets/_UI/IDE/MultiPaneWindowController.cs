@@ -1,3 +1,4 @@
+using System;
 using UnityEngine;
 using UnityEngine.UIElements;
 
@@ -7,11 +8,12 @@ public class MultiPaneWindowController : WindowComponent
     [SerializeField] private VisualTreeAsset _layoutAsset;
 
     [Header("Constraint Settings")]
-    [SerializeField] private float _minLeftPaneWidth = 200f; 
-    [SerializeField] private float _snapThreshold = 100f;    // Threshold for the PANE width
+    [SerializeField] private float _minLeftPaneWidth = 200f;
+    [SerializeField] private float _snapThreshold = 100f;
     [SerializeField] private float _minTopPaneHeight = 80f;
     [SerializeField] private float _minBottomPaneHeight = 80f;
     [SerializeField] private float _minCenterPaneWidth = 50f;
+    [SerializeField] private float _separatorThickness = 10f;
 
     [Header("Cursor Settings")]
     public Texture2D horizontalCursor;
@@ -22,10 +24,10 @@ public class MultiPaneWindowController : WindowComponent
     private VisualElement _leftPaneSlot;
     private VisualElement _topSlot;
     private VisualElement _centerPane;
+    private IBaseWindow _windowRoot;
 
     private bool _isLeftPaneOpen = true;
 
-    // Drag State Tracking
     private float _dragStartMouseY;
     private float _dragStartHeight;
 
@@ -33,9 +35,13 @@ public class MultiPaneWindowController : WindowComponent
     {
         if (container == null || _layoutAsset == null) return;
 
-        container.Clear(); 
+        _windowRoot = root;
+
+        container.Clear();
         _root = _layoutAsset.Instantiate();
         _root.style.flexGrow = 1;
+        _root.style.minWidth = 0;
+        _root.style.minHeight = 0;
         container.Add(_root);
 
         _leftPaneSlot = _root.Q<VisualElement>("LeftPane");
@@ -52,16 +58,27 @@ public class MultiPaneWindowController : WindowComponent
         SetupHorizontalResizer();
 
         _root.RegisterCallback<GeometryChangedEvent>(OnRootResized);
-        _centerPane.RegisterCallback<GeometryChangedEvent>(OnCenterPaneResized);
+        if (_centerPane != null)
+            _centerPane.RegisterCallback<GeometryChangedEvent>(OnCenterPaneResized);
 
         InitializeSubComponents(_root, root);
+        _windowRoot?.UpdateRootConstraints(GetMinimumSize());
     }
 
     public override Vector2 GetMinimumSize()
     {
-        float currentLeftMin = _isLeftPaneOpen ? _minLeftPaneWidth : 0f;
-        float minW = currentLeftMin + _minCenterPaneWidth; 
-        float minH = _minTopPaneHeight + _minBottomPaneHeight + 10f;
+        Vector2 leftChildMin = GetLargestMappedMinimumForSlots("LeftPane");
+        Vector2 topChildMin = GetLargestMappedMinimumForSlots("Top");
+        Vector2 centerChildMin = GetLargestMappedMinimumExcludingSlots("LeftPane", "Top");
+
+        float effectiveLeftWidth = _isLeftPaneOpen ? Mathf.Max(_minLeftPaneWidth, leftChildMin.x) : 0f;
+        float effectiveCenterWidth = Mathf.Max(_minCenterPaneWidth, Mathf.Max(topChildMin.x, centerChildMin.x));
+
+        float effectiveTopHeight = Mathf.Max(_minTopPaneHeight, topChildMin.y);
+        float effectiveBottomHeight = Mathf.Max(_minBottomPaneHeight, centerChildMin.y);
+
+        float minW = effectiveLeftWidth + effectiveCenterWidth;
+        float minH = effectiveTopHeight + effectiveBottomHeight + _separatorThickness;
 
         return new Vector2(minW, minH);
     }
@@ -69,50 +86,47 @@ public class MultiPaneWindowController : WindowComponent
     private void OnRootResized(GeometryChangedEvent evt)
     {
         float totalWidth = evt.newRect.width;
-        if (totalWidth <= 0 || !_isLeftPaneOpen) return;
+        if (totalWidth <= 0 || !_isLeftPaneOpen || _leftPaneSlot == null) return;
 
         float currentLeftWidth = _leftPaneSlot.resolvedStyle.width;
-        
-        if (currentLeftWidth + _minCenterPaneWidth > totalWidth)
+        float minRightWidth = Mathf.Max(_minCenterPaneWidth, Mathf.Max(GetLargestMappedMinimumForSlots("Top").x, GetLargestMappedMinimumExcludingSlots("LeftPane", "Top").x));
+
+        if (currentLeftWidth + minRightWidth > totalWidth)
         {
-            float allowedWidth = Mathf.Max(_minLeftPaneWidth, totalWidth - _minCenterPaneWidth);
+            float allowedWidth = Mathf.Max(_minLeftPaneWidth, totalWidth - minRightWidth);
             SetLeftPaneSize(allowedWidth);
         }
+
+        _windowRoot?.UpdateRootConstraints(GetMinimumSize());
     }
 
-private void SetupVerticalResizer()
+    private void SetupVerticalResizer()
     {
         var verticalSep = _root.Q<VisualElement>("VerticalSeparator");
         if (verticalSep == null || _leftPaneSlot == null) return;
 
-        // Configuration
-        float openThreshold = _snapThreshold;            // e.g. 100
-        float closeThreshold = _snapThreshold - 40f;    // e.g. 60 (Larger buffer to stop flicker)
-        
-        // We need to know where the TabList ends. 
-        // If it's a fixed width, you can set this to that value (e.g. 50f).
-        // Otherwise, we'll grab it once.
-        float tabListOffset = 50f; 
+        float openThreshold = _snapThreshold;
+        float closeThreshold = _snapThreshold - 40f;
+        float tabListOffset = 50f;
 
         verticalSep.RegisterCallback<PointerEnterEvent>(e => UnityEngine.Cursor.SetCursor(horizontalCursor, hotSpot, CursorMode.Auto));
-        verticalSep.RegisterCallback<PointerLeaveEvent>(e => {
+        verticalSep.RegisterCallback<PointerLeaveEvent>(e =>
+        {
             if (!verticalSep.HasPointerCapture(e.pointerId))
                 UnityEngine.Cursor.SetCursor(null, Vector2.zero, CursorMode.Auto);
         });
-        
-        verticalSep.RegisterCallback<PointerDownEvent>(e => { 
-            verticalSep.CapturePointer(e.pointerId); 
-            e.StopPropagation(); 
-        });
-        
-        verticalSep.RegisterCallback<PointerMoveEvent>(e => {
-            if (!verticalSep.HasPointerCapture(e.pointerId)) return;
-            
-            // Measure mouse relative to the window root (0 is far left of screen/window)
-            float localMouseX = _root.WorldToLocal(e.position).x;
 
-            // IMPORTANT: Calculate width relative to the WINDOW edge, not the pane layout.
-            // This stops the flickering because the window edge never moves.
+        verticalSep.RegisterCallback<PointerDownEvent>(e =>
+        {
+            verticalSep.CapturePointer(e.pointerId);
+            e.StopPropagation();
+        });
+
+        verticalSep.RegisterCallback<PointerMoveEvent>(e =>
+        {
+            if (!verticalSep.HasPointerCapture(e.pointerId)) return;
+
+            float localMouseX = _root.WorldToLocal(e.position).x;
             float desiredPaneWidth = localMouseX - tabListOffset;
 
             if (!_isLeftPaneOpen)
@@ -121,37 +135,39 @@ private void SetupVerticalResizer()
                 {
                     _isLeftPaneOpen = true;
                     _leftPaneSlot.style.display = DisplayStyle.Flex;
-                    SetLeftPaneSize(_minLeftPaneWidth);
+                    SetLeftPaneSize(Mathf.Max(_minLeftPaneWidth, GetLargestMappedMinimumForSlots("LeftPane").x));
+                    _windowRoot?.UpdateRootConstraints(GetMinimumSize());
                 }
             }
             else
             {
-                // Must pull back significantly further than the open point to close
                 if (desiredPaneWidth < closeThreshold)
                 {
                     _isLeftPaneOpen = false;
                     _leftPaneSlot.style.display = DisplayStyle.None;
                     SetLeftPaneSize(0);
+                    _windowRoot?.UpdateRootConstraints(GetMinimumSize());
                 }
-                // Zone C: Active Resizing
                 else if (desiredPaneWidth > _minLeftPaneWidth)
                 {
-                    float maxAllowed = _root.resolvedStyle.width - _minCenterPaneWidth - tabListOffset;
-                    SetLeftPaneSize(Mathf.Clamp(desiredPaneWidth, _minLeftPaneWidth, maxAllowed));
+                    float maxAllowed = _root.resolvedStyle.width - Mathf.Max(_minCenterPaneWidth, Mathf.Max(GetLargestMappedMinimumForSlots("Top").x, GetLargestMappedMinimumExcludingSlots("LeftPane", "Top").x)) - tabListOffset;
+                    float minAllowed = Mathf.Max(_minLeftPaneWidth, GetLargestMappedMinimumForSlots("LeftPane").x);
+                    SetLeftPaneSize(Mathf.Clamp(desiredPaneWidth, minAllowed, maxAllowed));
                 }
-                // Zone B: Snappy Deadzone (Force MinWidth)
                 else
                 {
-                    SetLeftPaneSize(_minLeftPaneWidth);
+                    SetLeftPaneSize(Mathf.Max(_minLeftPaneWidth, GetLargestMappedMinimumForSlots("LeftPane").x));
                 }
             }
         });
 
-        verticalSep.RegisterCallback<PointerUpEvent>(e => {
+        verticalSep.RegisterCallback<PointerUpEvent>(e =>
+        {
             verticalSep.ReleasePointer(e.pointerId);
             UnityEngine.Cursor.SetCursor(null, Vector2.zero, CursorMode.Auto);
         });
     }
+
     private void SetLeftPaneSize(float width)
     {
         if (_leftPaneSlot == null) return;
@@ -159,7 +175,7 @@ private void SetupVerticalResizer()
         style.width = width;
         style.flexBasis = width;
         style.minWidth = width;
-        style.maxWidth = width; 
+        style.maxWidth = width;
     }
 
     private void SetupHorizontalResizer()
@@ -169,45 +185,111 @@ private void SetupVerticalResizer()
 
         horizontalSep.RegisterCallback<PointerEnterEvent>(e => UnityEngine.Cursor.SetCursor(verticalCursor, hotSpot, CursorMode.Auto));
         horizontalSep.RegisterCallback<PointerLeaveEvent>(e => UnityEngine.Cursor.SetCursor(null, Vector2.zero, CursorMode.Auto));
-        
-        horizontalSep.RegisterCallback<PointerDownEvent>(e => { 
-            horizontalSep.CapturePointer(e.pointerId); 
+
+        horizontalSep.RegisterCallback<PointerDownEvent>(e =>
+        {
+            horizontalSep.CapturePointer(e.pointerId);
             _dragStartMouseY = e.position.y;
             _dragStartHeight = _topSlot.resolvedStyle.height;
-            e.StopPropagation(); 
+            e.StopPropagation();
         });
-        
-        horizontalSep.RegisterCallback<PointerMoveEvent>(e => {
+
+        horizontalSep.RegisterCallback<PointerMoveEvent>(e =>
+        {
             if (!horizontalSep.HasPointerCapture(e.pointerId)) return;
 
             float mouseDeltaY = e.position.y - _dragStartMouseY;
             float newHeight = _dragStartHeight + mouseDeltaY;
 
             float totalHeightAvailable = _centerPane.resolvedStyle.height;
-            float maxAllowed = totalHeightAvailable - _minBottomPaneHeight - 10f;
+            float minBottom = Mathf.Max(_minBottomPaneHeight, GetLargestMappedMinimumExcludingSlots("LeftPane", "Top").y);
+            float minTop = Mathf.Max(_minTopPaneHeight, GetLargestMappedMinimumForSlots("Top").y);
+            float maxAllowed = totalHeightAvailable - minBottom - _separatorThickness;
 
-            if (newHeight > _minTopPaneHeight && newHeight < maxAllowed) {
-                _topSlot.style.flexGrow = 0; 
+            if (newHeight > minTop && newHeight < maxAllowed)
+            {
+                _topSlot.style.flexGrow = 0;
                 _topSlot.style.flexBasis = newHeight;
                 _topSlot.style.height = newHeight;
             }
         });
+
         horizontalSep.RegisterCallback<PointerUpEvent>(e => horizontalSep.ReleasePointer(e.pointerId));
     }
 
     private void OnCenterPaneResized(GeometryChangedEvent evt)
     {
         float totalHeight = evt.newRect.height;
-        if (totalHeight <= 0) return;
+        if (totalHeight <= 0 || _topSlot == null) return;
 
         float currentTopHeight = _topSlot.resolvedStyle.height;
-        float separatorHeight = 10f;
+        float minBottom = Mathf.Max(_minBottomPaneHeight, GetLargestMappedMinimumExcludingSlots("LeftPane", "Top").y);
 
-        if (currentTopHeight + _minBottomPaneHeight + separatorHeight > totalHeight)
+        if (currentTopHeight + minBottom + _separatorThickness > totalHeight)
         {
-            float allowedHeight = Mathf.Max(_minTopPaneHeight, totalHeight - _minBottomPaneHeight - separatorHeight);
+            float allowedHeight = Mathf.Max(_minTopPaneHeight, Mathf.Max(GetLargestMappedMinimumForSlots("Top").y, totalHeight - minBottom - _separatorThickness));
             _topSlot.style.height = allowedHeight;
             _topSlot.style.flexBasis = allowedHeight;
         }
+
+        _windowRoot?.UpdateRootConstraints(GetMinimumSize());
+    }
+
+    private Vector2 GetLargestMappedMinimumForSlots(params string[] slotNames)
+    {
+        Vector2 result = Vector2.zero;
+        if (_subComponents == null)
+            return result;
+
+        foreach (var map in _subComponents)
+        {
+            if (map.controller == null || string.IsNullOrWhiteSpace(map.slotName))
+                continue;
+
+            if (!MatchesAnySlot(map.slotName, slotNames))
+                continue;
+
+            Vector2 min = map.controller.GetMinimumSize();
+            result.x = Mathf.Max(result.x, min.x);
+            result.y = Mathf.Max(result.y, min.y);
+        }
+
+        return result;
+    }
+
+    private Vector2 GetLargestMappedMinimumExcludingSlots(params string[] excludedSlots)
+    {
+        Vector2 result = Vector2.zero;
+        if (_subComponents == null)
+            return result;
+
+        foreach (var map in _subComponents)
+        {
+            if (map.controller == null || string.IsNullOrWhiteSpace(map.slotName))
+                continue;
+
+            if (MatchesAnySlot(map.slotName, excludedSlots))
+                continue;
+
+            Vector2 min = map.controller.GetMinimumSize();
+            result.x = Mathf.Max(result.x, min.x);
+            result.y = Mathf.Max(result.y, min.y);
+        }
+
+        return result;
+    }
+
+    private bool MatchesAnySlot(string slotName, params string[] candidates)
+    {
+        if (string.IsNullOrWhiteSpace(slotName) || candidates == null)
+            return false;
+
+        foreach (string candidate in candidates)
+        {
+            if (string.Equals(slotName, candidate, StringComparison.OrdinalIgnoreCase))
+                return true;
+        }
+
+        return false;
     }
 }

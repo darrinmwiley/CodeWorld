@@ -26,9 +26,9 @@ public class FirstPersonMovement : MonoBehaviour
         if(movementLocked)
         {
             // Kill velocity immediately so the player doesn't slide
-            if (rigidbody.velocity.sqrMagnitude > 0.001f)
+            if (rigidbody.linearVelocity.sqrMagnitude > 0.001f)
             {
-                rigidbody.velocity = new Vector3(0, rigidbody.velocity.y, 0);
+                rigidbody.linearVelocity = new Vector3(0, rigidbody.linearVelocity.y, 0);
                 rigidbody.angularVelocity = Vector3.zero;
             }
             return;
@@ -45,6 +45,6 @@ public class FirstPersonMovement : MonoBehaviour
 
         Vector2 targetVelocity = new Vector2(Input.GetAxis("Horizontal") * targetMovingSpeed, Input.GetAxis("Vertical") * targetMovingSpeed);
 
-        rigidbody.velocity = transform.rotation * new Vector3(targetVelocity.x, rigidbody.velocity.y, targetVelocity.y);
+        rigidbody.linearVelocity = transform.rotation * new Vector3(targetVelocity.x, rigidbody.linearVelocity.y, targetVelocity.y);
     }
 }

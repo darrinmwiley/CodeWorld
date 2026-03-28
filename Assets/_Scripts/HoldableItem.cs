@@ -121,7 +121,7 @@ public class HoldableItem : MonoBehaviour
         if (rb) 
         {
             rb.isKinematic = false;
-            rb.velocity = Vector3.zero;
+            rb.linearVelocity = Vector3.zero;
         }
     }
 
