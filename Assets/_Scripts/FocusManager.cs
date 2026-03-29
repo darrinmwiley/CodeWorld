@@ -5,7 +5,7 @@ using UnityEngine;
 public class FocusManager : MonoBehaviour
 {
     public static FocusManager Instance { get; private set; }
-    private Stack<IFocusable> _focusStack = new Stack<IFocusable>();
+    private List<IFocusable> _focusStack = new List<IFocusable>(); // Changed to List for specific removal
 
     [Header("Player References")]
     public FirstPersonMovement playerMovement;
@@ -15,11 +15,9 @@ public class FocusManager : MonoBehaviour
 
     private void Awake()
     {
-        // Singleton setup
         if (Instance == null)
         {
             Instance = this;
-            // Initialize global state before any Start() methods run
             GameState.IsInUI = false;
         }
         else
@@ -30,8 +28,6 @@ public class FocusManager : MonoBehaviour
 
     private void Start()
     {
-        // FORCE the hardware to be consumed/locked at the very beginning.
-        // This prevents the "leak" where the mouse is free until the first dialog.
         _manualCursorUnlock = false;
         UpdateState(); 
     }
@@ -40,17 +36,12 @@ public class FocusManager : MonoBehaviour
     {
         bool hasUIOpen = _focusStack.Count > 0;
         
-        // Sync global flag every frame
         GameState.IsInUI = hasUIOpen;
 
-        // Persistent enforcement: If UI is open, keep the mouse free.
-        // This beats other scripts trying to "snatch" the mouse back.
         if (hasUIOpen || _manualCursorUnlock)
         {
             ApplyCursorImmediate(true);
         }
-
-        // --- Input Handling ---
 
         // 1. TAB: Open the main window
         if (Input.GetKeyDown(KeyCode.Tab) && !hasUIOpen)
@@ -63,7 +54,7 @@ public class FocusManager : MonoBehaviour
             }
         }
         
-        // 2. ESCAPE: Close UI or toggle free-look mouse
+        // 2. ESCAPE: Close top UI or toggle free-look mouse
         else if (Input.GetKeyDown(KeyCode.Escape))
         {
             if (hasUIOpen)
@@ -88,9 +79,9 @@ public class FocusManager : MonoBehaviour
 
     public void PushFocus(IFocusable focusable)
     {
-        if (_focusStack.Count > 0 && _focusStack.Peek() == focusable) return;
+        if (_focusStack.Count > 0 && _focusStack[_focusStack.Count - 1] == focusable) return;
         
-        _focusStack.Push(focusable);
+        _focusStack.Add(focusable);
         focusable.OnFocus();
         UpdateState();
     }
@@ -99,18 +90,28 @@ public class FocusManager : MonoBehaviour
     {
         if (_focusStack.Count > 0)
         {
-            IFocusable top = _focusStack.Pop();
+            IFocusable top = _focusStack[_focusStack.Count - 1];
+            _focusStack.RemoveAt(_focusStack.Count - 1);
             top.OnDefocus();
         }
         UpdateState();
     }
 
+    // New helper: Allows a specific window (like one being closed via X button) to remove itself
+    public void RemoveFocus(IFocusable focusable)
+    {
+        if (focusable == null) return;
+        if (_focusStack.Contains(focusable))
+        {
+            _focusStack.Remove(focusable);
+            focusable.OnDefocus();
+            UpdateState();
+        }
+    }
+
     private void UpdateState()
     {
-        // "Busy" means we want the mouse visible and movement stopped
         bool isBusy = (_focusStack.Count > 0 || _manualCursorUnlock);
-        
-        // Update the static state for FirstPersonLook
         GameState.IsInUI = (_focusStack.Count > 0);
 
         if (playerMovement != null)
@@ -126,7 +127,6 @@ public class FocusManager : MonoBehaviour
         UnityEngine.Cursor.visible = visible;
         UnityEngine.Cursor.lockState = visible ? CursorLockMode.None : CursorLockMode.Locked;
         
-        // Standard secondary check for standalone builds
         if (!visible)
         {
             UnityEngine.Cursor.lockState = CursorLockMode.Locked;
