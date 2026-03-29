@@ -4,8 +4,6 @@ using UnityEngine.UIElements;
 
 public class MultiPaneWindowController : WindowComponent
 {
-    [Header("Theme")]
-    [SerializeField] private UITheme _theme;
     [Header("Layout Assets")]
     [SerializeField] private VisualTreeAsset _layoutAsset;
 
@@ -14,6 +12,7 @@ public class MultiPaneWindowController : WindowComponent
     [SerializeField] private float _snapThreshold = 100f;
     [SerializeField] private float _minTopPaneHeight = 80f;
     [SerializeField] private float _minBottomPaneHeight = 80f;
+    [SerializeField] private float _defaultBottomPaneHeight = 200f;
     [SerializeField] private float _minCenterPaneWidth = 50f;
     [SerializeField] private float _separatorThickness = 10f;
 
@@ -29,9 +28,11 @@ public class MultiPaneWindowController : WindowComponent
     private IBaseWindow _windowRoot;
 
     private bool _isLeftPaneOpen = true;
+    private bool _hasInitializedHorizontalSplit;
 
     private float _dragStartMouseY;
     private float _dragStartHeight;
+    private bool _isDraggingHorizontal;
 
     public override void Initialize(VisualElement container, IBaseWindow root)
     {
@@ -55,8 +56,6 @@ public class MultiPaneWindowController : WindowComponent
             _leftPaneSlot.style.flexGrow = 0;
             _leftPaneSlot.style.flexShrink = 0;
         }
-
-        ApplyTheme(_theme);
 
         SetupVerticalResizer();
         SetupHorizontalResizer();
@@ -87,13 +86,45 @@ public class MultiPaneWindowController : WindowComponent
         return new Vector2(minW, minH);
     }
 
+    public void ApplyTheme(UITheme theme)
+    {
+        if (theme == null || _root == null)
+            return;
+
+        _root.style.backgroundColor = theme.backgroundBase;
+
+        VisualElement leftPane = _root.Q<VisualElement>("LeftPane");
+        if (leftPane != null)
+            leftPane.style.backgroundColor = theme.backgroundSurface;
+
+        if (_centerPane != null)
+            _centerPane.style.backgroundColor = theme.backgroundBase;
+
+        if (_topSlot != null)
+            _topSlot.style.backgroundColor = theme.backgroundSurface;
+
+        VisualElement verticalSep = _root.Q<VisualElement>("VerticalSeparator");
+        if (verticalSep != null)
+            verticalSep.style.backgroundColor = theme.border;
+
+        VisualElement horizontalSep = _root.Q<VisualElement>("HorizontalSeparator");
+        if (horizontalSep != null)
+            horizontalSep.style.backgroundColor = theme.border;
+    }
+
     private void OnRootResized(GeometryChangedEvent evt)
     {
         float totalWidth = evt.newRect.width;
         if (totalWidth <= 0 || !_isLeftPaneOpen || _leftPaneSlot == null) return;
 
         float currentLeftWidth = _leftPaneSlot.resolvedStyle.width;
-        float minRightWidth = Mathf.Max(_minCenterPaneWidth, Mathf.Max(GetLargestMappedMinimumForSlots("Top").x, GetLargestMappedMinimumExcludingSlots("LeftPane", "Top").x));
+        float minRightWidth = Mathf.Max(
+            _minCenterPaneWidth,
+            Mathf.Max(
+                GetLargestMappedMinimumForSlots("Top").x,
+                GetLargestMappedMinimumExcludingSlots("LeftPane", "Top").x
+            )
+        );
 
         if (currentLeftWidth + minRightWidth > totalWidth)
         {
@@ -101,19 +132,24 @@ public class MultiPaneWindowController : WindowComponent
             SetLeftPaneSize(allowedWidth);
         }
 
+        if (_hasInitializedHorizontalSplit)
+            ClampTopPaneToValidRange();
+
         _windowRoot?.UpdateRootConstraints(GetMinimumSize());
     }
 
     private void SetupVerticalResizer()
     {
-        var verticalSep = _root.Q<VisualElement>("VerticalSeparator");
+        VisualElement verticalSep = _root.Q<VisualElement>("VerticalSeparator");
         if (verticalSep == null || _leftPaneSlot == null) return;
 
         float openThreshold = _snapThreshold;
         float closeThreshold = _snapThreshold - 40f;
         float tabListOffset = 50f;
 
-        verticalSep.RegisterCallback<PointerEnterEvent>(e => UnityEngine.Cursor.SetCursor(horizontalCursor, hotSpot, CursorMode.Auto));
+        verticalSep.RegisterCallback<PointerEnterEvent>(e =>
+            UnityEngine.Cursor.SetCursor(horizontalCursor, hotSpot, CursorMode.Auto));
+
         verticalSep.RegisterCallback<PointerLeaveEvent>(e =>
         {
             if (!verticalSep.HasPointerCapture(e.pointerId))
@@ -154,7 +190,16 @@ public class MultiPaneWindowController : WindowComponent
                 }
                 else if (desiredPaneWidth > _minLeftPaneWidth)
                 {
-                    float maxAllowed = _root.resolvedStyle.width - Mathf.Max(_minCenterPaneWidth, Mathf.Max(GetLargestMappedMinimumForSlots("Top").x, GetLargestMappedMinimumExcludingSlots("LeftPane", "Top").x)) - tabListOffset;
+                    float maxAllowed = _root.resolvedStyle.width
+                        - Mathf.Max(
+                            _minCenterPaneWidth,
+                            Mathf.Max(
+                                GetLargestMappedMinimumForSlots("Top").x,
+                                GetLargestMappedMinimumExcludingSlots("LeftPane", "Top").x
+                            )
+                        )
+                        - tabListOffset;
+
                     float minAllowed = Mathf.Max(_minLeftPaneWidth, GetLargestMappedMinimumForSlots("LeftPane").x);
                     SetLeftPaneSize(Mathf.Clamp(desiredPaneWidth, minAllowed, maxAllowed));
                 }
@@ -175,7 +220,8 @@ public class MultiPaneWindowController : WindowComponent
     private void SetLeftPaneSize(float width)
     {
         if (_leftPaneSlot == null) return;
-        var style = _leftPaneSlot.style;
+
+        IStyle style = _leftPaneSlot.style;
         style.width = width;
         style.flexBasis = width;
         style.minWidth = width;
@@ -184,17 +230,31 @@ public class MultiPaneWindowController : WindowComponent
 
     private void SetupHorizontalResizer()
     {
-        var horizontalSep = _root.Q<VisualElement>("HorizontalSeparator");
+        VisualElement horizontalSep = _root.Q<VisualElement>("HorizontalSeparator");
         if (horizontalSep == null || _topSlot == null || _centerPane == null) return;
 
-        horizontalSep.RegisterCallback<PointerEnterEvent>(e => UnityEngine.Cursor.SetCursor(verticalCursor, hotSpot, CursorMode.Auto));
-        horizontalSep.RegisterCallback<PointerLeaveEvent>(e => UnityEngine.Cursor.SetCursor(null, Vector2.zero, CursorMode.Auto));
+        horizontalSep.RegisterCallback<PointerEnterEvent>(e =>
+            UnityEngine.Cursor.SetCursor(verticalCursor, hotSpot, CursorMode.Auto));
+
+        horizontalSep.RegisterCallback<PointerLeaveEvent>(e =>
+        {
+            if (!horizontalSep.HasPointerCapture(e.pointerId))
+                UnityEngine.Cursor.SetCursor(null, Vector2.zero, CursorMode.Auto);
+        });
 
         horizontalSep.RegisterCallback<PointerDownEvent>(e =>
         {
             horizontalSep.CapturePointer(e.pointerId);
             _dragStartMouseY = e.position.y;
+
+            if (!_hasInitializedHorizontalSplit)
+                ApplyInitialHorizontalSplit();
+            else
+                ClampTopPaneToValidRange();
+
             _dragStartHeight = _topSlot.resolvedStyle.height;
+            _isDraggingHorizontal = true;
+
             e.StopPropagation();
         });
 
@@ -203,40 +263,82 @@ public class MultiPaneWindowController : WindowComponent
             if (!horizontalSep.HasPointerCapture(e.pointerId)) return;
 
             float mouseDeltaY = e.position.y - _dragStartMouseY;
-            float newHeight = _dragStartHeight + mouseDeltaY;
-
-            float totalHeightAvailable = _centerPane.resolvedStyle.height;
-            float minBottom = Mathf.Max(_minBottomPaneHeight, GetLargestMappedMinimumExcludingSlots("LeftPane", "Top").y);
-            float minTop = Mathf.Max(_minTopPaneHeight, GetLargestMappedMinimumForSlots("Top").y);
-            float maxAllowed = totalHeightAvailable - minBottom - _separatorThickness;
-
-            if (newHeight > minTop && newHeight < maxAllowed)
-            {
-                _topSlot.style.flexGrow = 0;
-                _topSlot.style.flexBasis = newHeight;
-                _topSlot.style.height = newHeight;
-            }
+            float desiredHeight = _dragStartHeight + mouseDeltaY;
+            ApplyTopPaneHeight(GetClampedTopPaneHeight(desiredHeight));
         });
 
-        horizontalSep.RegisterCallback<PointerUpEvent>(e => horizontalSep.ReleasePointer(e.pointerId));
+        horizontalSep.RegisterCallback<PointerUpEvent>(e =>
+        {
+            if (horizontalSep.HasPointerCapture(e.pointerId))
+                horizontalSep.ReleasePointer(e.pointerId);
+
+            _isDraggingHorizontal = false;
+            ClampTopPaneToValidRange();
+            _windowRoot?.UpdateRootConstraints(GetMinimumSize());
+        });
     }
 
     private void OnCenterPaneResized(GeometryChangedEvent evt)
     {
-        float totalHeight = evt.newRect.height;
-        if (totalHeight <= 0 || _topSlot == null) return;
+        if (_isDraggingHorizontal)
+            return;
 
-        float currentTopHeight = _topSlot.resolvedStyle.height;
-        float minBottom = Mathf.Max(_minBottomPaneHeight, GetLargestMappedMinimumExcludingSlots("LeftPane", "Top").y);
-
-        if (currentTopHeight + minBottom + _separatorThickness > totalHeight)
-        {
-            float allowedHeight = Mathf.Max(_minTopPaneHeight, Mathf.Max(GetLargestMappedMinimumForSlots("Top").y, totalHeight - minBottom - _separatorThickness));
-            _topSlot.style.height = allowedHeight;
-            _topSlot.style.flexBasis = allowedHeight;
-        }
+        if (!_hasInitializedHorizontalSplit)
+            ApplyInitialHorizontalSplit();
+        else
+            ClampTopPaneToValidRange();
 
         _windowRoot?.UpdateRootConstraints(GetMinimumSize());
+    }
+
+    private void ApplyInitialHorizontalSplit()
+    {
+        if (_topSlot == null || _centerPane == null)
+            return;
+
+        float totalHeightAvailable = _centerPane.resolvedStyle.height;
+        if (totalHeightAvailable <= 0f)
+            return;
+
+        float desiredTopHeight = totalHeightAvailable - _defaultBottomPaneHeight - _separatorThickness;
+        ApplyTopPaneHeight(GetClampedTopPaneHeight(desiredTopHeight));
+        _hasInitializedHorizontalSplit = true;
+    }
+
+    private void ClampTopPaneToValidRange()
+    {
+        if (_topSlot == null || _centerPane == null)
+            return;
+
+        float clampedHeight = GetClampedTopPaneHeight(_topSlot.resolvedStyle.height);
+        ApplyTopPaneHeight(clampedHeight);
+    }
+
+    private float GetClampedTopPaneHeight(float desiredHeight)
+    {
+        float minTop = Mathf.Max(_minTopPaneHeight, GetLargestMappedMinimumForSlots("Top").y);
+        float minBottom = Mathf.Max(_minBottomPaneHeight, GetLargestMappedMinimumExcludingSlots("LeftPane", "Top").y);
+
+        float totalHeightAvailable = _centerPane != null ? _centerPane.resolvedStyle.height : 0f;
+        float maxAllowed = totalHeightAvailable - minBottom - _separatorThickness;
+
+        if (maxAllowed < minTop)
+            maxAllowed = minTop;
+
+        if (desiredHeight <= 0f)
+            desiredHeight = minTop;
+
+        return Mathf.Clamp(desiredHeight, minTop, maxAllowed);
+    }
+
+    private void ApplyTopPaneHeight(float height)
+    {
+        if (_topSlot == null)
+            return;
+
+        _topSlot.style.flexGrow = 0;
+        _topSlot.style.flexBasis = height;
+        _topSlot.style.height = height;
     }
 
     private Vector2 GetLargestMappedMinimumForSlots(params string[] slotNames)
@@ -245,7 +347,7 @@ public class MultiPaneWindowController : WindowComponent
         if (_subComponents == null)
             return result;
 
-        foreach (var map in _subComponents)
+        foreach (WindowMapping map in _subComponents)
         {
             if (map.controller == null || string.IsNullOrWhiteSpace(map.slotName))
                 continue;
@@ -267,7 +369,7 @@ public class MultiPaneWindowController : WindowComponent
         if (_subComponents == null)
             return result;
 
-        foreach (var map in _subComponents)
+        foreach (WindowMapping map in _subComponents)
         {
             if (map.controller == null || string.IsNullOrWhiteSpace(map.slotName))
                 continue;
@@ -281,33 +383,6 @@ public class MultiPaneWindowController : WindowComponent
         }
 
         return result;
-    }
-
-    public void ApplyTheme(UITheme theme)
-    {
-        _theme = theme;
-        if (theme == null || _root == null)
-            return;
-
-        _root.style.backgroundColor = theme.backgroundBase;
-        ApplyPaneTheme(_root.Q<VisualElement>("LeftPane"), theme.backgroundSurface, theme.border);
-        ApplyPaneTheme(_root.Q<VisualElement>("CenterPane"), theme.backgroundBase, theme.border);
-        ApplyPaneTheme(_root.Q<VisualElement>("Top"), theme.backgroundSurface, theme.border);
-        ApplyPaneTheme(_root.Q<VisualElement>("Bottom"), theme.backgroundBase, theme.border);
-        ApplyPaneTheme(_root.Q<VisualElement>("VerticalSeparator"), theme.border, theme.border);
-        ApplyPaneTheme(_root.Q<VisualElement>("HorizontalSeparator"), theme.border, theme.border);
-    }
-
-    private void ApplyPaneTheme(VisualElement element, Color background, Color border)
-    {
-        if (element == null)
-            return;
-
-        element.style.backgroundColor = background;
-        element.style.borderLeftColor = border;
-        element.style.borderRightColor = border;
-        element.style.borderTopColor = border;
-        element.style.borderBottomColor = border;
     }
 
     private bool MatchesAnySlot(string slotName, params string[] candidates)

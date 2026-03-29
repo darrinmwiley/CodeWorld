@@ -19,7 +19,6 @@ public class UIDraggableManipulator : PointerManipulator
 
     protected override void RegisterCallbacksOnTarget()
     {
-        // Ensure the target element can intercept mouse/pointer events
         target.pickingMode = PickingMode.Position;
 
         target.RegisterCallback<PointerDownEvent>(OnPointerDown);
@@ -40,10 +39,10 @@ public class UIDraggableManipulator : PointerManipulator
 
         _startMousePos = (Vector2)evt.position;
         _startWindowPos = new Vector2(_targetWindow.resolvedStyle.left, _targetWindow.resolvedStyle.top);
-        
+
         _active = true;
         target.CapturePointer(evt.pointerId);
-        
+
         _onPointerDown?.Invoke();
     }
 
@@ -52,10 +51,34 @@ public class UIDraggableManipulator : PointerManipulator
         if (!_active || !target.HasPointerCapture(evt.pointerId)) return;
 
         Vector2 diff = (Vector2)evt.position - _startMousePos;
-        
-        _targetWindow.style.left = _startWindowPos.x + diff.x;
-        _targetWindow.style.top = _startWindowPos.y + diff.y;
-        
+
+        float desiredLeft = _startWindowPos.x + diff.x;
+        float desiredTop = _startWindowPos.y + diff.y;
+
+        VisualElement parent = _targetWindow.parent;
+        if (parent != null)
+        {
+            float parentWidth = parent.resolvedStyle.width;
+            float parentHeight = parent.resolvedStyle.height;
+            float windowWidth = _targetWindow.resolvedStyle.width;
+            float windowHeight = _targetWindow.resolvedStyle.height;
+
+            if (parentWidth > 0f && windowWidth > 0f)
+            {
+                float maxLeft = Mathf.Max(0f, parentWidth - windowWidth);
+                desiredLeft = Mathf.Clamp(desiredLeft, 0f, maxLeft);
+            }
+
+            if (parentHeight > 0f && windowHeight > 0f)
+            {
+                float maxTop = Mathf.Max(0f, parentHeight - windowHeight);
+                desiredTop = Mathf.Clamp(desiredTop, 0f, maxTop);
+            }
+        }
+
+        _targetWindow.style.left = desiredLeft;
+        _targetWindow.style.top = desiredTop;
+
         evt.StopImmediatePropagation();
     }
 

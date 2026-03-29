@@ -246,7 +246,7 @@ public class ConsoleStateManager : MonoBehaviour
         // -----------------------------
 
         int top = verticalScroll;
-        int safeBottom = verticalScroll + viewportHeight - 2; // 1 row buffer
+        int safeBottom = verticalScroll + viewportHeight - 3; // 1 row buffer
 
         if (cursorRow < top)
         {
