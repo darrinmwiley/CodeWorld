@@ -1,3 +1,4 @@
 <ui:UXML xmlns:ui="UnityEngine.UIElements" xmlns:uie="UnityEditor.UIElements" xsi="http://www.w3.org/2001/XMLSchema-instance" engine="UnityEngine.UIElements" editor="UnityEditor.UIElements" noNamespaceSchemaLocation="../../../UIElementsSchema/UIElements.xsd" editor-extension-mode="False">
+    <Style src="project://database/Assets/_UI/IDE/FileHierarchy.uss?fileID=7433441132597879392&amp;guid=c9111960295cf814d9dc8dbc64bb4311&amp;type=3#FileHierarchy" />
     <ui:TreeView view-data-key="unity-tree-view" focusable="true" name="FileTree" />
 </ui:UXML>

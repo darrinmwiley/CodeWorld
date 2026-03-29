@@ -8,6 +8,7 @@ public class UIThemeController : MonoBehaviour
     [SerializeField] private bool _applyContinuouslyInEditMode = false;
     [SerializeField] private WindowContainerController[] _windowContainers;
     [SerializeField] private MultiPaneWindowController[] _multiPaneControllers;
+    [SerializeField] private LeftTabPaneController[] _leftTabPaneControllers;
     [SerializeField] private TabbedConsoleWindowController[] _tabbedConsoleControllers;
     [SerializeField] private FileHierarchyComponent[] _fileHierarchyControllers;
     [SerializeField] private ConsoleRenderer[] _consoleRenderers;
@@ -40,6 +41,10 @@ public class UIThemeController : MonoBehaviour
             foreach (var controller in _multiPaneControllers)
                 controller?.ApplyTheme(_theme);
 
+        if (_leftTabPaneControllers != null)
+            foreach (var controller in _leftTabPaneControllers)
+                controller?.ApplyTheme(_theme);
+
         if (_tabbedConsoleControllers != null)
             foreach (var controller in _tabbedConsoleControllers)
                 controller?.ApplyTheme(_theme);
@@ -59,6 +64,8 @@ public class UIThemeController : MonoBehaviour
             _windowContainers = FindObjectsByType<WindowContainerController>(FindObjectsInactive.Include, FindObjectsSortMode.None);
         if (_multiPaneControllers == null || _multiPaneControllers.Length == 0)
             _multiPaneControllers = FindObjectsByType<MultiPaneWindowController>(FindObjectsInactive.Include, FindObjectsSortMode.None);
+        if (_leftTabPaneControllers == null || _leftTabPaneControllers.Length == 0)
+            _leftTabPaneControllers = FindObjectsByType<LeftTabPaneController>(FindObjectsInactive.Include, FindObjectsSortMode.None);
         if (_tabbedConsoleControllers == null || _tabbedConsoleControllers.Length == 0)
             _tabbedConsoleControllers = FindObjectsByType<TabbedConsoleWindowController>(FindObjectsInactive.Include, FindObjectsSortMode.None);
         if (_fileHierarchyControllers == null || _fileHierarchyControllers.Length == 0)

@@ -21,6 +21,10 @@ public class MultiPaneWindowController : WindowComponent
     public Texture2D verticalCursor;
     public Vector2 hotSpot = new Vector2(16, 16);
 
+    public event Action<bool> LeftPaneVisibilityChanged;
+
+    public bool IsLeftPaneOpen => _isLeftPaneOpen;
+
     private VisualElement _root;
     private VisualElement _leftPaneSlot;
     private VisualElement _topSlot;
@@ -55,6 +59,7 @@ public class MultiPaneWindowController : WindowComponent
         {
             _leftPaneSlot.style.flexGrow = 0;
             _leftPaneSlot.style.flexShrink = 0;
+            ApplyLeftPaneVisualState(false);
         }
 
         SetupVerticalResizer();
@@ -110,6 +115,58 @@ public class MultiPaneWindowController : WindowComponent
         VisualElement horizontalSep = _root.Q<VisualElement>("HorizontalSeparator");
         if (horizontalSep != null)
             horizontalSep.style.backgroundColor = theme.border;
+    }
+
+    public void ToggleLeftPane()
+    {
+        if (_isLeftPaneOpen)
+            HideLeftPane();
+        else
+            ShowLeftPane();
+    }
+
+    public void ShowLeftPane(bool notify = true)
+    {
+        if (_leftPaneSlot == null)
+            return;
+
+        if (!_isLeftPaneOpen)
+            _isLeftPaneOpen = true;
+
+        ApplyLeftPaneVisualState(notify);
+    }
+
+    public void HideLeftPane(bool notify = true)
+    {
+        if (_leftPaneSlot == null)
+            return;
+
+        if (_isLeftPaneOpen)
+            _isLeftPaneOpen = false;
+
+        ApplyLeftPaneVisualState(notify);
+    }
+
+    private void ApplyLeftPaneVisualState(bool notify)
+    {
+        if (_leftPaneSlot == null)
+            return;
+
+        if (_isLeftPaneOpen)
+        {
+            _leftPaneSlot.style.display = DisplayStyle.Flex;
+            SetLeftPaneSize(Mathf.Max(_minLeftPaneWidth, GetLargestMappedMinimumForSlots("LeftPane").x));
+        }
+        else
+        {
+            _leftPaneSlot.style.display = DisplayStyle.None;
+            SetLeftPaneSize(0f);
+        }
+
+        if (notify)
+            LeftPaneVisibilityChanged?.Invoke(_isLeftPaneOpen);
+
+        _windowRoot?.UpdateRootConstraints(GetMinimumSize());
     }
 
     private void OnRootResized(GeometryChangedEvent evt)
@@ -172,21 +229,13 @@ public class MultiPaneWindowController : WindowComponent
             if (!_isLeftPaneOpen)
             {
                 if (desiredPaneWidth >= openThreshold)
-                {
-                    _isLeftPaneOpen = true;
-                    _leftPaneSlot.style.display = DisplayStyle.Flex;
-                    SetLeftPaneSize(Mathf.Max(_minLeftPaneWidth, GetLargestMappedMinimumForSlots("LeftPane").x));
-                    _windowRoot?.UpdateRootConstraints(GetMinimumSize());
-                }
+                    ShowLeftPane();
             }
             else
             {
                 if (desiredPaneWidth < closeThreshold)
                 {
-                    _isLeftPaneOpen = false;
-                    _leftPaneSlot.style.display = DisplayStyle.None;
-                    SetLeftPaneSize(0);
-                    _windowRoot?.UpdateRootConstraints(GetMinimumSize());
+                    HideLeftPane();
                 }
                 else if (desiredPaneWidth > _minLeftPaneWidth)
                 {
