@@ -5,6 +5,10 @@ using UnityEngine.UIElements;
 
 public class FileHierarchyComponent : WindowComponent
 {
+    [Header("Theme")]
+    [SerializeField] private UITheme _theme;
+
+    private VisualElement _mainView;
     [Header("UI Assets")]
     [SerializeField] private VisualTreeAsset _hierarchyAsset;
     [SerializeField] private VisualTreeAsset _rowTemplate;
@@ -33,13 +37,13 @@ public class FileHierarchyComponent : WindowComponent
         container.style.minHeight = 0;
         container.style.minWidth = 0;
 
-        VisualElement mainView = _hierarchyAsset.Instantiate();
-        mainView.style.flexGrow = 1;
-        mainView.style.minHeight = 0;
-        mainView.style.minWidth = 0;
-        container.Add(mainView);
+        _mainView = _hierarchyAsset.Instantiate();
+        _mainView.style.flexGrow = 1;
+        _mainView.style.minHeight = 0;
+        _mainView.style.minWidth = 0;
+        container.Add(_mainView);
 
-        _treeView = mainView.Q<TreeView>(_treeViewElementName);
+        _treeView = _mainView.Q<TreeView>(_treeViewElementName);
         if (_treeView == null)
         {
             Debug.LogError($"[FileHierarchy] TreeView '{_treeViewElementName}' not found inside the hierarchy asset.", this);
@@ -52,9 +56,11 @@ public class FileHierarchyComponent : WindowComponent
         _treeView.SetRootItems(GetMockData());
         _treeView.Rebuild();
 
+        ApplyTheme(_theme);
+
         Log($"Initialize complete. TreeView found: name='{_treeView.name}'");
 
-        InitializeSubComponents(mainView, root);
+        InitializeSubComponents(_mainView, root);
     }
 
     private VisualElement MakeRow()
@@ -77,6 +83,7 @@ public class FileHierarchyComponent : WindowComponent
             fileName.text = data.Name;
 
         element.userData = data;
+        StyleRow(element, data.IsDirectory);
         element.UnregisterCallback<PointerDownEvent>(OnRowPointerDown);
         element.RegisterCallback<PointerDownEvent>(OnRowPointerDown);
     }
@@ -108,6 +115,44 @@ public class FileHierarchyComponent : WindowComponent
 
         FileClicked?.Invoke(node);
         _tabbedContent?.OpenFile(node);
+    }
+
+    public void ApplyTheme(UITheme theme)
+    {
+        _theme = theme;
+        if (theme == null)
+            return;
+
+        if (_mainView != null)
+        {
+            _mainView.style.backgroundColor = theme.backgroundSurface;
+            _mainView.style.color = theme.text;
+        }
+
+        if (_treeView != null)
+        {
+            _treeView.style.backgroundColor = theme.backgroundSurface;
+            _treeView.style.color = theme.text;
+            _treeView.Rebuild();
+        }
+    }
+
+    private void StyleRow(VisualElement element, bool isDirectory)
+    {
+        if (_theme == null || element == null)
+            return;
+
+        element.style.backgroundColor = _theme.backgroundSurface;
+        element.style.color = _theme.text;
+        element.style.borderBottomColor = _theme.border;
+        element.style.borderBottomWidth = 1;
+
+        Label fileName = element.Q<Label>(_fileNameLabelName);
+        if (fileName != null)
+        {
+            fileName.style.color = _theme.text;
+            fileName.style.unityFontStyleAndWeight = isDirectory ? FontStyle.Bold : FontStyle.Normal;
+        }
     }
 
     private List<TreeViewItemData<VirtualFileNode>> GetMockData()

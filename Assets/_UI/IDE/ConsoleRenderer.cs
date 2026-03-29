@@ -6,6 +6,8 @@ using UnityEngine.UI;
 
 public class ConsoleRenderer : MonoBehaviour
 {
+    [Header("Theme")]
+    [SerializeField] private UITheme _theme;
     [Header("Dependencies")]
     public ConsoleStateManager stateManager;
     public SyntaxHighlighter syntaxHighlighter;
@@ -40,9 +42,14 @@ public class ConsoleRenderer : MonoBehaviour
     private static readonly Color32 COLOR_WHITE = new Color32(255, 255, 255, 255);
     private const char LOCK_GLYPH_SENTINEL = '\u0001';
 
+    private Color32 _themeBackgroundBase = new Color32(0, 0, 0, 255);
+    private Color32 _themeBackgroundSurface = new Color32(38, 38, 38, 255);
+    private Color32 _themeText = new Color32(255, 255, 255, 255);
+
     public RenderTexture RenderTex { get; private set; }
     public int DisplayTextureWidth { get; private set; }
     public int DisplayTextureHeight { get; private set; }
+    public Color BackgroundColor => (Color)_themeBackgroundBase;
 
     private char[] _cellChars;
     private Color32[] _cellBackgroundColors;
@@ -95,6 +102,7 @@ public class ConsoleRenderer : MonoBehaviour
         }
 
         SyncStatePaddingSettings();
+        ApplyTheme(_theme);
 
         if (stateManager != null)
             stateManager.OnStateChanged += UpdateConsoleVisuals;
@@ -367,7 +375,7 @@ public class ConsoleRenderer : MonoBehaviour
         _bakeCamera = cameraGO.AddComponent<Camera>();
         _bakeCamera.enabled = false;
         _bakeCamera.clearFlags = CameraClearFlags.SolidColor;
-        _bakeCamera.backgroundColor = Color.black;
+        _bakeCamera.backgroundColor = _themeBackgroundBase;
         _bakeCamera.orthographic = true;
         _bakeCamera.orthographicSize = CELL_Y * 0.5f;
         _bakeCamera.aspect = (float)_cellActualWidth / Mathf.Max(1, _cellActualHeight);
@@ -565,8 +573,8 @@ public class ConsoleRenderer : MonoBehaviour
         for (int i = 0; i < _cellChars.Length; i++)
         {
             _cellChars[i] = ' ';
-            _cellBackgroundColors[i] = COLOR_BLACK;
-            _cellTextColors[i] = COLOR_WHITE;
+            _cellBackgroundColors[i] = _themeBackgroundBase;
+            _cellTextColors[i] = _themeText;
         }
 
         for (int row = 0; row < _lockGlyphVisibleByRow.Length; row++)
@@ -584,8 +592,9 @@ public class ConsoleRenderer : MonoBehaviour
             bool hasLine = lineIndex < stateManager.lines.Count;
             bool isLocked = hasLine && stateManager.IsLineLocked(lineIndex);
 
-            SetCellColor(row, 0, isLocked ? new Color(.15f, .15f, .15f) : Color.black);
-            SetCellTextColor(row, 0, Color.white);
+            Color gutterBackground = hasLine ? (Color)_themeBackgroundSurface : (Color)_themeBackgroundBase;
+            SetCellColor(row, 0, gutterBackground);
+            SetCellTextColor(row, 0, _themeText);
             SetChar(row, 0, isLocked ? LOCK_GLYPH_SENTINEL : ' ');
             _lockGlyphVisibleByRow[row] = isLocked;
         }
@@ -601,8 +610,8 @@ public class ConsoleRenderer : MonoBehaviour
 
             for (int col = padding; col < stateManager.viewportWidth; col++)
             {
-                SetCellColor(row, col, Color.black);
-                SetCellTextColor(row, col, Color.white);
+                SetCellColor(row, col, _themeBackgroundBase);
+                SetCellTextColor(row, col, _themeText);
 
                 int contentColumn = col - padding + stateManager.horizontalScroll;
                 if (lineNumber >= 0 &&
@@ -638,8 +647,8 @@ public class ConsoleRenderer : MonoBehaviour
             for (int offset = 0; offset < totalLineNumberLength; offset++)
             {
                 int col = leftGutterPadding + offset;
-                SetCellColor(row, col, hasLine ? new Color(.15f, .15f, .15f) : Color.black);
-                SetCellTextColor(row, col, Color.white);
+                SetCellColor(row, col, hasLine ? _themeBackgroundSurface : _themeBackgroundBase);
+                SetCellTextColor(row, col, _themeText);
                 SetChar(row, col, ' ');
             }
 
@@ -689,8 +698,8 @@ public class ConsoleRenderer : MonoBehaviour
                     viewportC >= stateManager.GetLineCountPadding() &&
                     viewportC < stateManager.viewportWidth)
                 {
-                    SetCellColor(viewportR, viewportC, Color.white);
-                    SetCellTextColor(viewportR, viewportC, Color.black);
+                    SetCellColor(viewportR, viewportC, _themeText);
+                    SetCellTextColor(viewportR, viewportC, _themeBackgroundBase);
                 }
             }
 
@@ -719,6 +728,9 @@ public class ConsoleRenderer : MonoBehaviour
 
         int textureWidth = _compositeTexture.width;
         int textureHeight = _compositeTexture.height;
+
+        for (int i = 0; i < _pixelBuffer.Length; i++)
+            _pixelBuffer[i] = _themeBackgroundBase;
 
         for (int row = 0; row < stateManager.viewportHeight; row++)
         {
@@ -813,6 +825,21 @@ public class ConsoleRenderer : MonoBehaviour
     private int GetCellIndex(int row, int col)
     {
         return row * stateManager.viewportWidth + col;
+    }
+
+    public void ApplyTheme(UITheme theme)
+    {
+        _theme = theme;
+        if (theme == null)
+            return;
+
+        _themeBackgroundBase = (Color32)theme.backgroundBase;
+        _themeBackgroundSurface = (Color32)theme.backgroundSurface;
+        _themeText = (Color32)theme.text;
+        cursorColor = theme.text;
+
+        if (RenderTex != null && stateManager != null)
+            UpdateConsoleVisuals();
     }
 
     private void SetLayerRecursively(GameObject go, int layer)

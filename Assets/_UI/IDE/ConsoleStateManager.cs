@@ -241,16 +241,50 @@ public class ConsoleStateManager : MonoBehaviour
             return;
         }
 
-        if (verticalScroll + viewportHeight - 1 < cursorRow)
-            verticalScroll = cursorRow - viewportHeight + 1;
-        if (verticalScroll > cursorRow)
+        // -----------------------------
+        // Vertical scroll (with buffer)
+        // -----------------------------
+
+        int top = verticalScroll;
+        int safeBottom = verticalScroll + viewportHeight - 2; // 1 row buffer
+
+        if (cursorRow < top)
+        {
             verticalScroll = cursorRow;
+        }
+        else if (cursorRow > safeBottom)
+        {
+            verticalScroll = cursorRow - (viewportHeight - 3);
+        }
+
+        int maxScroll = Mathf.Max(0, lines.Count - viewportHeight);
+        verticalScroll = Mathf.Clamp(verticalScroll, 0, maxScroll);
+
+        // -----------------------------
+        // Horizontal scroll (NEW BUFFER)
+        // -----------------------------
 
         int padding = GetLineCountPadding();
-        if (horizontalScroll + viewportWidth - 1 - padding < visibleCursorCol)
-            horizontalScroll = visibleCursorCol - viewportWidth + 1 + padding;
+
+        int left = horizontalScroll;
+        int safeRight = horizontalScroll + viewportWidth - 2 - padding; // 1 column buffer
+
+        if (visibleCursorCol < left)
+        {
+            horizontalScroll = visibleCursorCol;
+        }
+        else if (visibleCursorCol > safeRight)
+        {
+            horizontalScroll = visibleCursorCol - (viewportWidth - 2 - padding);
+        }
+
+        // Keep slight left-side breathing room like before
         if (horizontalScroll > visibleCursorCol - 4)
+        {
             horizontalScroll = Mathf.Max(0, visibleCursorCol - 4);
+        }
+
+        horizontalScroll = Mathf.Max(0, horizontalScroll);
     }
 
     public bool CanApplyInsertion(string[] insertedLines)
@@ -740,6 +774,8 @@ public class ConsoleStateManager : MonoBehaviour
         dragCurrent = new Vector2Int(
             Mathf.Clamp(dragCurrent.x, 0, Mathf.Max(0, lines.Count - 1)),
             Mathf.Clamp(dragCurrent.y, 0, GetLineLength(Mathf.Clamp(dragCurrent.x, 0, Mathf.Max(0, lines.Count - 1)))));
+
+        AdjustScrollToCursor();
     }
 
     private void ClampRegion(ref int r1, ref int c1, ref int r2, ref int c2)

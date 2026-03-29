@@ -3,6 +3,8 @@ using UnityEngine.UIElements;
 
 public class WindowContainerController : WindowComponent, IFocusable, IBaseWindow
 {
+    [Header("Theme")]
+    [SerializeField] private UITheme _theme;
     [Header("Shell References")]
     [SerializeField] private UIDocument _windowShell;
 
@@ -38,6 +40,7 @@ public class WindowContainerController : WindowComponent, IFocusable, IBaseWindo
         }
 
         SetupAllResizeZones();
+        ApplyTheme(_theme);
         InitializeSubComponents(_windowShell.rootVisualElement, this);
     }
 
@@ -113,4 +116,39 @@ public class WindowContainerController : WindowComponent, IFocusable, IBaseWindo
     }
 
     public void OnDefocus() => RootElement.style.display = DisplayStyle.None;
+
+    public void ApplyTheme(UITheme theme)
+    {
+        _theme = theme;
+        if (theme == null || RootElement == null)
+            return;
+
+        RootElement.style.backgroundColor = theme.backgroundBase;
+        RootElement.style.borderLeftColor = theme.border;
+        RootElement.style.borderRightColor = theme.border;
+        RootElement.style.borderTopColor = theme.border;
+        RootElement.style.borderBottomColor = theme.border;
+        RootElement.style.color = theme.text;
+
+        TryStyleElement("TitleBar", theme.backgroundSurface, theme.text, theme.border);
+        TryStyleElement("ResizableWindow", theme.backgroundBase, theme.text, theme.border);
+    }
+
+    private void TryStyleElement(string name, Color background, Color? textColor, Color? borderColor)
+    {
+        var element = RootElement?.Q<VisualElement>(name);
+        if (element == null)
+            return;
+
+        element.style.backgroundColor = background;
+        if (textColor.HasValue)
+            element.style.color = textColor.Value;
+        if (borderColor.HasValue)
+        {
+            element.style.borderLeftColor = borderColor.Value;
+            element.style.borderRightColor = borderColor.Value;
+            element.style.borderTopColor = borderColor.Value;
+            element.style.borderBottomColor = borderColor.Value;
+        }
+    }
 }

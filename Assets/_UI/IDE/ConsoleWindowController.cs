@@ -21,6 +21,10 @@ public class ConsoleWindowController : WindowComponent
     public int maxViewportWidth = 300;
     public int maxViewportHeight = 120;
 
+    [Header("Auto-Fit Buffer")]
+    public int extraBufferColumns = 1;
+    public int extraBufferRows = 1;
+
     [Header("Focus")]
     public bool escapeDefocusesAll = true;
     public CursorLockMode escapeCursorLockMode = CursorLockMode.Locked;
@@ -104,7 +108,7 @@ public class ConsoleWindowController : WindowComponent
         _outputVE.style.backgroundSize = new BackgroundSize(displayWidth, displayHeight);
         _outputVE.style.backgroundPositionX = new BackgroundPosition(BackgroundPositionKeyword.Left);
         _outputVE.style.backgroundPositionY = new BackgroundPosition(BackgroundPositionKeyword.Top);
-        _outputVE.style.backgroundColor = Color.black;
+        _outputVE.style.backgroundColor = rendererManager != null ? rendererManager.BackgroundColor : Color.black;
     }
 
     private void OnOutputGeometryChanged(GeometryChangedEvent evt)
@@ -134,8 +138,17 @@ public class ConsoleWindowController : WindowComponent
         float pxPerCol = displayWidth / Mathf.Max(1, stateManager.viewportWidth);
         float pxPerRow = displayHeight / Mathf.Max(1, stateManager.viewportHeight);
 
-        int desiredCols = Mathf.Clamp(Mathf.FloorToInt(w / pxPerCol), minViewportWidth, maxViewportWidth);
-        int desiredRows = Mathf.Clamp(Mathf.FloorToInt(h / pxPerRow), minViewportHeight, maxViewportHeight);
+        int desiredCols = Mathf.Clamp(
+            Mathf.CeilToInt(w / pxPerCol) + Mathf.Max(0, extraBufferColumns),
+            minViewportWidth,
+            maxViewportWidth
+        );
+
+        int desiredRows = Mathf.Clamp(
+            Mathf.CeilToInt(h / pxPerRow) + Mathf.Max(0, extraBufferRows),
+            minViewportHeight,
+            maxViewportHeight
+        );
 
         if (desiredCols == stateManager.viewportWidth && desiredRows == stateManager.viewportHeight) return;
 

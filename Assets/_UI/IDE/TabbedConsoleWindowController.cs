@@ -6,6 +6,8 @@ using UnityEngine.UIElements;
 
 public class TabbedConsoleWindowController : WindowComponent
 {
+    [Header("Theme")]
+    [SerializeField] private UITheme _theme;
     [Header("UI Assets")]
     [SerializeField] private VisualTreeAsset _tabbedContentAsset;
 
@@ -71,6 +73,7 @@ public class TabbedConsoleWindowController : WindowComponent
         _hostContainer.RegisterCallback<GeometryChangedEvent>(OnGeometryChanged);
         _headerScrollView.RegisterCallback<GeometryChangedEvent>(OnGeometryChanged);
 
+        ApplyTheme(_theme);
         NotifyRootConstraintsChanged();
         Log("Initialize complete.");
         InitializeSubComponents(styledRoot, root);
@@ -128,6 +131,8 @@ public class TabbedConsoleWindowController : WindowComponent
 
             if (tabData.HeaderRoot != null)
                 tabData.HeaderRoot.EnableInClassList(ActiveTabClass, isActive);
+
+            ApplyThemeToTab(tabData);
 
             if (tabData.ContentHost != null)
                 tabData.ContentHost.style.display = isActive ? DisplayStyle.Flex : DisplayStyle.None;
@@ -189,6 +194,58 @@ public class TabbedConsoleWindowController : WindowComponent
         root.Add(_headerRow);
         root.Add(_contentViewport);
         return root;
+    }
+
+    public void ApplyTheme(UITheme theme)
+    {
+        _theme = theme;
+        if (theme == null)
+            return;
+
+        if (_runtimeRoot != null)
+            _runtimeRoot.style.backgroundColor = theme.backgroundBase;
+        if (_headerRow != null)
+            _headerRow.style.backgroundColor = theme.backgroundSurface;
+        if (_headerScrollView != null)
+            _headerScrollView.style.backgroundColor = theme.backgroundSurface;
+        if (_headerStrip != null)
+            _headerStrip.style.backgroundColor = theme.backgroundSurface;
+        if (_contentViewport != null)
+            _contentViewport.style.backgroundColor = theme.backgroundBase;
+
+        foreach (TabData tabData in _tabOrder)
+            ApplyThemeToTab(tabData);
+    }
+
+    private void ApplyThemeToTab(TabData tabData)
+    {
+        if (tabData == null || _theme == null)
+            return;
+
+        bool active = ActiveTabKey == tabData.Key;
+
+        if (tabData.HeaderRoot != null)
+        {
+            tabData.HeaderRoot.style.backgroundColor = active ? _theme.backgroundActive : _theme.backgroundSurface;
+            tabData.HeaderRoot.style.color = _theme.text;
+            tabData.HeaderRoot.style.borderBottomColor = _theme.border;
+        }
+
+        if (tabData.HeaderLabel != null)
+            tabData.HeaderLabel.style.color = _theme.text;
+
+        if (tabData.CloseButton != null)
+        {
+            Color lowProfile = new Color(_theme.text.r, _theme.text.g, _theme.text.b, 0.08f);
+            tabData.CloseButton.style.backgroundColor = lowProfile;
+            tabData.CloseButton.style.color = _theme.text;
+        }
+
+        if (tabData.ContentHost != null)
+            tabData.ContentHost.style.backgroundColor = _theme.backgroundBase;
+
+        if (tabData.Console != null && tabData.Console.rendererManager != null)
+            tabData.Console.rendererManager.ApplyTheme(_theme);
     }
 
     private ConsoleWindowController AddConsoleTabInternal(string key, string title, string filePath)
@@ -279,6 +336,7 @@ public class TabbedConsoleWindowController : WindowComponent
         _tabsByKey.Add(key, tabData);
         _tabOrder.Add(tabData);
 
+        ApplyThemeToTab(tabData);
         SelectTab(key);
         Log($"Added tab '{title}' for key '{key}'. Total tabs: {_tabOrder.Count}");
         return console;

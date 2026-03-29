@@ -4,6 +4,8 @@ using UnityEngine.UIElements;
 
 public class MultiPaneWindowController : WindowComponent
 {
+    [Header("Theme")]
+    [SerializeField] private UITheme _theme;
     [Header("Layout Assets")]
     [SerializeField] private VisualTreeAsset _layoutAsset;
 
@@ -53,6 +55,8 @@ public class MultiPaneWindowController : WindowComponent
             _leftPaneSlot.style.flexGrow = 0;
             _leftPaneSlot.style.flexShrink = 0;
         }
+
+        ApplyTheme(_theme);
 
         SetupVerticalResizer();
         SetupHorizontalResizer();
@@ -277,6 +281,33 @@ public class MultiPaneWindowController : WindowComponent
         }
 
         return result;
+    }
+
+    public void ApplyTheme(UITheme theme)
+    {
+        _theme = theme;
+        if (theme == null || _root == null)
+            return;
+
+        _root.style.backgroundColor = theme.backgroundBase;
+        ApplyPaneTheme(_root.Q<VisualElement>("LeftPane"), theme.backgroundSurface, theme.border);
+        ApplyPaneTheme(_root.Q<VisualElement>("CenterPane"), theme.backgroundBase, theme.border);
+        ApplyPaneTheme(_root.Q<VisualElement>("Top"), theme.backgroundSurface, theme.border);
+        ApplyPaneTheme(_root.Q<VisualElement>("Bottom"), theme.backgroundBase, theme.border);
+        ApplyPaneTheme(_root.Q<VisualElement>("VerticalSeparator"), theme.border, theme.border);
+        ApplyPaneTheme(_root.Q<VisualElement>("HorizontalSeparator"), theme.border, theme.border);
+    }
+
+    private void ApplyPaneTheme(VisualElement element, Color background, Color border)
+    {
+        if (element == null)
+            return;
+
+        element.style.backgroundColor = background;
+        element.style.borderLeftColor = border;
+        element.style.borderRightColor = border;
+        element.style.borderTopColor = border;
+        element.style.borderBottomColor = border;
     }
 
     private bool MatchesAnySlot(string slotName, params string[] candidates)
