@@ -196,7 +196,7 @@ public class TabbedConsoleWindowController : WindowComponent
         return root;
     }
 
-    public void ApplyTheme(UITheme theme)
+    public override void ApplyTheme(UITheme theme)
     {
         _theme = theme;
         if (theme == null)

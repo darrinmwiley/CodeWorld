@@ -680,7 +680,7 @@ MeshRenderer:
   m_RenderingLayerMask: 1
   m_RendererPriority: 0
   m_Materials:
-  - {fileID: 1758032821}
+  - {fileID: 648350990}
   m_StaticBatchInfo:
     firstSubMesh: 0
     subMeshCount: 0
@@ -2896,6 +2896,68 @@ GameObject:
     type: 3}
   m_PrefabInstance: {fileID: 1516149746}
   m_PrefabAsset: {fileID: 0}
+--- !u!1 &189443640
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 189443641}
+  - component: {fileID: 189443642}
+  m_Layer: 0
+  m_Name: Options
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &189443641
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 189443640}
+  serializedVersion: 2
+  m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 303557718}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &189443642
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 189443640}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: c3302ae02cdb929448dca645cdbcbeb2, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  _subComponents:
+  - slotName: ContentViewport
+    controller: {fileID: 270209683}
+  _theme: {fileID: 11400000, guid: 49bcb8e952a8f23479b1ae0f4d621f1b, type: 2}
+  _barHeight: 30
+  _dropdownWidth: 160
+  _dropdowns:
+  - menuLabel: File
+    items:
+    - label: Save
+      commandCode: save
+  _toolbarButtons:
+  - icon: {fileID: 2800000, guid: c5359b0acb1c0d849a2501da32f07ab3, type: 3}
+    tooltip: poop
+    commandCode: poop
+  - icon: {fileID: 0}
+    tooltip: 
+    commandCode: 
 --- !u!1001 &196967405
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -4486,6 +4548,7 @@ Transform:
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children:
+  - {fileID: 189443641}
   - {fileID: 270209682}
   m_Father: {fileID: 282956256}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
@@ -4503,9 +4566,13 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   _subComponents:
   - slotName: MainContent
-    controller: {fileID: 270209683}
+    controller: {fileID: 189443642}
   _toolbarLayoutAsset: {fileID: 9197481963319205126, guid: f5e641cf5dbe836408312d6190e0ba0c,
     type: 3}
+  _handleElementName: Handle
+  _closeButtonElementName: Button1
+  _maximizeButtonElementName: Button2
+  _verboseLogging: 0
 --- !u!1 &303665512
 GameObject:
   m_ObjectHideFlags: 0
@@ -5390,7 +5457,7 @@ MeshRenderer:
   m_RenderingLayerMask: 1
   m_RendererPriority: 0
   m_Materials:
-  - {fileID: 1435128193}
+  - {fileID: 907668003}
   m_StaticBatchInfo:
     firstSubMesh: 0
     subMeshCount: 0
@@ -7978,6 +8045,51 @@ PrefabInstance:
     m_AddedGameObjects: []
     m_AddedComponents: []
   m_SourcePrefab: {fileID: 100100000, guid: 2f440b6e54217894c892fec89b066795, type: 3}
+--- !u!21 &648350990
+Material:
+  serializedVersion: 8
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_Name: colored (Instance)
+  m_Shader: {fileID: -6465566751694194690, guid: 62a54f2b0fb451f43909cb661e7582fc,
+    type: 3}
+  m_Parent: {fileID: 0}
+  m_ModifiedSerializedProperties: 0
+  m_ValidKeywords: []
+  m_InvalidKeywords: []
+  m_LightmapFlags: 4
+  m_EnableInstancingVariants: 0
+  m_DoubleSidedGI: 0
+  m_CustomRenderQueue: -1
+  stringTagMap: {}
+  disabledShaderPasses:
+  - MOTIONVECTORS
+  m_LockedProperties: 
+  m_SavedProperties:
+    serializedVersion: 3
+    m_TexEnvs:
+    - unity_Lightmaps:
+        m_Texture: {fileID: 0}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0}
+    - unity_LightmapsInd:
+        m_Texture: {fileID: 0}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0}
+    - unity_ShadowMasks:
+        m_Texture: {fileID: 0}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0}
+    m_Ints: []
+    m_Floats:
+    - _QueueControl: 0
+    - _QueueOffset: 0
+    m_Colors:
+    - _color: {r: 1, g: 0, b: 0, a: 1}
+  m_BuildTextureStacks: []
+  m_AllowLocking: 1
 --- !u!4 &650519632 stripped
 Transform:
   m_CorrespondingSourceObject: {fileID: 8420010664405424069, guid: 2f440b6e54217894c892fec89b066795,
@@ -9580,6 +9692,27 @@ PrefabInstance:
         type: 3}
       propertyPath: minConsoleSize.y
       value: 100
+      objectReference: {fileID: 0}
+    - target: {fileID: 2372929055191190424, guid: 0ea9ea8efad61d84a87cb37c3aee0b8a,
+        type: 3}
+      propertyPath: _theme
+      value: 
+      objectReference: {fileID: 11400000, guid: 49bcb8e952a8f23479b1ae0f4d621f1b,
+        type: 2}
+    - target: {fileID: 2372929055191190424, guid: 0ea9ea8efad61d84a87cb37c3aee0b8a,
+        type: 3}
+      propertyPath: cursorColor.b
+      value: 0.8627451
+      objectReference: {fileID: 0}
+    - target: {fileID: 2372929055191190424, guid: 0ea9ea8efad61d84a87cb37c3aee0b8a,
+        type: 3}
+      propertyPath: cursorColor.g
+      value: 0.8627451
+      objectReference: {fileID: 0}
+    - target: {fileID: 2372929055191190424, guid: 0ea9ea8efad61d84a87cb37c3aee0b8a,
+        type: 3}
+      propertyPath: cursorColor.r
+      value: 0.8627451
       objectReference: {fileID: 0}
     - target: {fileID: 2372929055191190424, guid: 0ea9ea8efad61d84a87cb37c3aee0b8a,
         type: 3}
@@ -11785,6 +11918,51 @@ Light:
   m_LightUnit: 1
   m_LuxAtDistance: 1
   m_EnableSpotReflector: 1
+--- !u!21 &907668003
+Material:
+  serializedVersion: 8
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_Name: colored (Instance)
+  m_Shader: {fileID: -6465566751694194690, guid: 62a54f2b0fb451f43909cb661e7582fc,
+    type: 3}
+  m_Parent: {fileID: 0}
+  m_ModifiedSerializedProperties: 0
+  m_ValidKeywords: []
+  m_InvalidKeywords: []
+  m_LightmapFlags: 4
+  m_EnableInstancingVariants: 0
+  m_DoubleSidedGI: 0
+  m_CustomRenderQueue: -1
+  stringTagMap: {}
+  disabledShaderPasses:
+  - MOTIONVECTORS
+  m_LockedProperties: 
+  m_SavedProperties:
+    serializedVersion: 3
+    m_TexEnvs:
+    - unity_Lightmaps:
+        m_Texture: {fileID: 0}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0}
+    - unity_LightmapsInd:
+        m_Texture: {fileID: 0}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0}
+    - unity_ShadowMasks:
+        m_Texture: {fileID: 0}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0}
+    m_Ints: []
+    m_Floats:
+    - _QueueControl: 0
+    - _QueueOffset: 0
+    m_Colors:
+    - _color: {r: 1, g: 0, b: 0, a: 1}
+  m_BuildTextureStacks: []
+  m_AllowLocking: 1
 --- !u!1 &918058290 stripped
 GameObject:
   m_CorrespondingSourceObject: {fileID: 2621364976329062830, guid: 2f440b6e54217894c892fec89b066795,
@@ -14332,6 +14510,8 @@ MonoBehaviour:
   - {fileID: 1560912493}
   _tabbedConsoleControllers:
   - {fileID: 73608721}
+  _optionBarWrappers:
+  - {fileID: 189443642}
   _fileHierarchyControllers:
   - {fileID: 940391550}
   _consoleRenderers:
@@ -15803,7 +15983,7 @@ MeshRenderer:
   m_RenderingLayerMask: 1
   m_RendererPriority: 0
   m_Materials:
-  - {fileID: 1693598035}
+  - {fileID: 1544425428}
   m_StaticBatchInfo:
     firstSubMesh: 0
     subMeshCount: 0
@@ -18355,51 +18535,6 @@ PrefabInstance:
     m_AddedGameObjects: []
     m_AddedComponents: []
   m_SourcePrefab: {fileID: 100100000, guid: 2f440b6e54217894c892fec89b066795, type: 3}
---- !u!21 &1435128193
-Material:
-  serializedVersion: 8
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_Name: colored (Instance)
-  m_Shader: {fileID: -6465566751694194690, guid: 62a54f2b0fb451f43909cb661e7582fc,
-    type: 3}
-  m_Parent: {fileID: 0}
-  m_ModifiedSerializedProperties: 0
-  m_ValidKeywords: []
-  m_InvalidKeywords: []
-  m_LightmapFlags: 4
-  m_EnableInstancingVariants: 0
-  m_DoubleSidedGI: 0
-  m_CustomRenderQueue: -1
-  stringTagMap: {}
-  disabledShaderPasses:
-  - MOTIONVECTORS
-  m_LockedProperties: 
-  m_SavedProperties:
-    serializedVersion: 3
-    m_TexEnvs:
-    - unity_Lightmaps:
-        m_Texture: {fileID: 0}
-        m_Scale: {x: 1, y: 1}
-        m_Offset: {x: 0, y: 0}
-    - unity_LightmapsInd:
-        m_Texture: {fileID: 0}
-        m_Scale: {x: 1, y: 1}
-        m_Offset: {x: 0, y: 0}
-    - unity_ShadowMasks:
-        m_Texture: {fileID: 0}
-        m_Scale: {x: 1, y: 1}
-        m_Offset: {x: 0, y: 0}
-    m_Ints: []
-    m_Floats:
-    - _QueueControl: 0
-    - _QueueOffset: 0
-    m_Colors:
-    - _color: {r: 1, g: 0, b: 0, a: 1}
-  m_BuildTextureStacks: []
-  m_AllowLocking: 1
 --- !u!1001 &1450868646
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -19313,6 +19448,51 @@ GameObject:
     type: 3}
   m_PrefabInstance: {fileID: 1955264919}
   m_PrefabAsset: {fileID: 0}
+--- !u!21 &1544425428
+Material:
+  serializedVersion: 8
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_Name: colored (Instance)
+  m_Shader: {fileID: -6465566751694194690, guid: 62a54f2b0fb451f43909cb661e7582fc,
+    type: 3}
+  m_Parent: {fileID: 0}
+  m_ModifiedSerializedProperties: 0
+  m_ValidKeywords: []
+  m_InvalidKeywords: []
+  m_LightmapFlags: 4
+  m_EnableInstancingVariants: 0
+  m_DoubleSidedGI: 0
+  m_CustomRenderQueue: -1
+  stringTagMap: {}
+  disabledShaderPasses:
+  - MOTIONVECTORS
+  m_LockedProperties: 
+  m_SavedProperties:
+    serializedVersion: 3
+    m_TexEnvs:
+    - unity_Lightmaps:
+        m_Texture: {fileID: 0}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0}
+    - unity_LightmapsInd:
+        m_Texture: {fileID: 0}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0}
+    - unity_ShadowMasks:
+        m_Texture: {fileID: 0}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0}
+    m_Ints: []
+    m_Floats:
+    - _QueueControl: 0
+    - _QueueOffset: 0
+    m_Colors:
+    - _color: {r: 0, g: 0, b: 0, a: 0}
+  m_BuildTextureStacks: []
+  m_AllowLocking: 1
 --- !u!1 &1560912491
 GameObject:
   m_ObjectHideFlags: 0
@@ -20828,51 +21008,6 @@ GameObject:
     type: 3}
   m_PrefabInstance: {fileID: 254407425}
   m_PrefabAsset: {fileID: 0}
---- !u!21 &1693598035
-Material:
-  serializedVersion: 8
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_Name: colored (Instance)
-  m_Shader: {fileID: -6465566751694194690, guid: 62a54f2b0fb451f43909cb661e7582fc,
-    type: 3}
-  m_Parent: {fileID: 0}
-  m_ModifiedSerializedProperties: 0
-  m_ValidKeywords: []
-  m_InvalidKeywords: []
-  m_LightmapFlags: 4
-  m_EnableInstancingVariants: 0
-  m_DoubleSidedGI: 0
-  m_CustomRenderQueue: -1
-  stringTagMap: {}
-  disabledShaderPasses:
-  - MOTIONVECTORS
-  m_LockedProperties: 
-  m_SavedProperties:
-    serializedVersion: 3
-    m_TexEnvs:
-    - unity_Lightmaps:
-        m_Texture: {fileID: 0}
-        m_Scale: {x: 1, y: 1}
-        m_Offset: {x: 0, y: 0}
-    - unity_LightmapsInd:
-        m_Texture: {fileID: 0}
-        m_Scale: {x: 1, y: 1}
-        m_Offset: {x: 0, y: 0}
-    - unity_ShadowMasks:
-        m_Texture: {fileID: 0}
-        m_Scale: {x: 1, y: 1}
-        m_Offset: {x: 0, y: 0}
-    m_Ints: []
-    m_Floats:
-    - _QueueControl: 0
-    - _QueueOffset: 0
-    m_Colors:
-    - _color: {r: 0, g: 0, b: 0, a: 0}
-  m_BuildTextureStacks: []
-  m_AllowLocking: 1
 --- !u!1001 &1705498805
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -21942,51 +22077,6 @@ Transform:
     type: 3}
   m_PrefabInstance: {fileID: 773686027}
   m_PrefabAsset: {fileID: 0}
---- !u!21 &1758032821
-Material:
-  serializedVersion: 8
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_Name: colored (Instance)
-  m_Shader: {fileID: -6465566751694194690, guid: 62a54f2b0fb451f43909cb661e7582fc,
-    type: 3}
-  m_Parent: {fileID: 0}
-  m_ModifiedSerializedProperties: 0
-  m_ValidKeywords: []
-  m_InvalidKeywords: []
-  m_LightmapFlags: 4
-  m_EnableInstancingVariants: 0
-  m_DoubleSidedGI: 0
-  m_CustomRenderQueue: -1
-  stringTagMap: {}
-  disabledShaderPasses:
-  - MOTIONVECTORS
-  m_LockedProperties: 
-  m_SavedProperties:
-    serializedVersion: 3
-    m_TexEnvs:
-    - unity_Lightmaps:
-        m_Texture: {fileID: 0}
-        m_Scale: {x: 1, y: 1}
-        m_Offset: {x: 0, y: 0}
-    - unity_LightmapsInd:
-        m_Texture: {fileID: 0}
-        m_Scale: {x: 1, y: 1}
-        m_Offset: {x: 0, y: 0}
-    - unity_ShadowMasks:
-        m_Texture: {fileID: 0}
-        m_Scale: {x: 1, y: 1}
-        m_Offset: {x: 0, y: 0}
-    m_Ints: []
-    m_Floats:
-    - _QueueControl: 0
-    - _QueueOffset: 0
-    m_Colors:
-    - _color: {r: 1, g: 0, b: 0, a: 1}
-  m_BuildTextureStacks: []
-  m_AllowLocking: 1
 --- !u!1001 &1765929754
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -26269,6 +26359,27 @@ PrefabInstance:
         type: 3}
       propertyPath: autoFitToWindow
       value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 2372929055191190424, guid: 0ea9ea8efad61d84a87cb37c3aee0b8a,
+        type: 3}
+      propertyPath: _theme
+      value: 
+      objectReference: {fileID: 11400000, guid: 49bcb8e952a8f23479b1ae0f4d621f1b,
+        type: 2}
+    - target: {fileID: 2372929055191190424, guid: 0ea9ea8efad61d84a87cb37c3aee0b8a,
+        type: 3}
+      propertyPath: cursorColor.b
+      value: 0.8627451
+      objectReference: {fileID: 0}
+    - target: {fileID: 2372929055191190424, guid: 0ea9ea8efad61d84a87cb37c3aee0b8a,
+        type: 3}
+      propertyPath: cursorColor.g
+      value: 0.8627451
+      objectReference: {fileID: 0}
+    - target: {fileID: 2372929055191190424, guid: 0ea9ea8efad61d84a87cb37c3aee0b8a,
+        type: 3}
+      propertyPath: cursorColor.r
+      value: 0.8627451
       objectReference: {fileID: 0}
     - target: {fileID: 2372929055191190424, guid: 0ea9ea8efad61d84a87cb37c3aee0b8a,
         type: 3}

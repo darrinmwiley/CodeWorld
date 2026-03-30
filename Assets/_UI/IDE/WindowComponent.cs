@@ -20,10 +20,10 @@ public abstract class WindowComponent : MonoBehaviour
 
     public abstract void Initialize(VisualElement container, IBaseWindow root);
 
-    /// <summary>
-    /// Returns the minimum size required by this component.
-    /// </summary>
     public virtual Vector2 GetMinimumSize() => Vector2.zero;
+
+    // Added: Generic theme hook for the UIThemeController to call
+    public virtual void ApplyTheme(UITheme theme) { }
 
     protected void InitializeSubComponents(VisualElement localRoot, IBaseWindow root)
     {

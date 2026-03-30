@@ -117,7 +117,7 @@ public class WindowContainerController : WindowComponent, IFocusable, IBaseWindo
 
     public void OnDefocus() => RootElement.style.display = DisplayStyle.None;
 
-    public void ApplyTheme(UITheme theme)
+    public override void ApplyTheme(UITheme theme)
     {
         _theme = theme;
         if (theme == null || RootElement == null)

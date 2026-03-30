@@ -103,7 +103,7 @@ public class LeftTabPaneController : WindowComponent
         return new Vector2(MinPaneWidth, 0f);
     }
 
-    public void ApplyTheme(UITheme theme)
+    public override void ApplyTheme(UITheme theme)
     {
         _theme = theme;
         ApplyContainerBackground();

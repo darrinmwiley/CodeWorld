@@ -1,0 +1,22 @@
+.option-bar-strip {
+    /* Base styling handled by C# Theme apply */
+}
+
+.option-bar-item:hover {
+    background-color: rgba(255, 255, 255, 0.1);
+}
+
+.option-bar-item:active {
+    background-color: rgba(255, 255, 255, 0.2);
+}
+
+.option-bar-button {
+    -unity-background-scale-mode: scale-to-fit;
+    cursor: link;
+    transition-property: opacity;
+    transition-duration: 0.1s;
+}
+
+.option-bar-button:hover {
+    opacity: 0.7;
+}
