@@ -105,6 +105,18 @@ public class ConsoleStateManager : MonoBehaviour
         return lines[row].locked;
     }
 
+    public List<Line> ExportLines()
+    {
+        List<Line> exported = new List<Line>(lines.Count);
+        for (int i = 0; i < lines.Count; i++)
+        {
+            Line line = lines[i];
+            exported.Add(new Line(line.content, line.locked));
+        }
+
+        return exported;
+    }
+
     public void Save(string fileName)
     {
         try
@@ -115,6 +127,7 @@ public class ConsoleStateManager : MonoBehaviour
                 for (int i = 0; i < lines.Count; i++)
                     writer.WriteLine(ToSerializedString(lines[i]));
             }
+
             Debug.Log("File saved successfully: " + filePath);
         }
         catch (Exception e)
@@ -125,7 +138,8 @@ public class ConsoleStateManager : MonoBehaviour
 
     public void Load(string relativeFilePath)
     {
-        lines = new List<Line>();
+        List<Line> loadedLines = new List<Line>();
+
         try
         {
             string filePath = Path.Combine(Application.persistentDataPath, relativeFilePath);
@@ -133,7 +147,7 @@ public class ConsoleStateManager : MonoBehaviour
             {
                 string[] rawLines = File.ReadAllLines(filePath);
                 for (int i = 0; i < rawLines.Length; i++)
-                    lines.Add(ParseSerializedLine(rawLines[i]));
+                    loadedLines.Add(ParseSerializedLine(rawLines[i]));
             }
             else
             {
@@ -143,6 +157,22 @@ public class ConsoleStateManager : MonoBehaviour
         catch (Exception e)
         {
             Debug.LogError("Error loading file: " + e.Message);
+        }
+
+        LoadLines(loadedLines);
+    }
+
+    public void LoadLines(List<Line> newLines)
+    {
+        lines = new List<Line>();
+
+        if (newLines != null)
+        {
+            for (int i = 0; i < newLines.Count; i++)
+            {
+                Line line = newLines[i];
+                lines.Add(new Line(line.content, line.locked));
+            }
         }
 
         NormalizeAndEnsureLines();
@@ -161,6 +191,7 @@ public class ConsoleStateManager : MonoBehaviour
     public ConsoleState GetState()
     {
         return new ConsoleState.Builder()
+            .setVerticalScroll(verticalScroll)
             .setCursorCol(cursorCol)
             .setCursorRow(cursorRow)
             .setVisibleCursorCol(visibleCursorCol)
@@ -172,6 +203,10 @@ public class ConsoleStateManager : MonoBehaviour
 
     public void SetState(ConsoleState consoleState)
     {
+        if (consoleState == null)
+            return;
+
+        verticalScroll = consoleState.verticalScroll;
         cursorCol = consoleState.cursorCol;
         cursorRow = consoleState.cursorRow;
         visibleCursorCol = consoleState.visibleCursorCol;
@@ -241,12 +276,8 @@ public class ConsoleStateManager : MonoBehaviour
             return;
         }
 
-        // -----------------------------
-        // Vertical scroll (with buffer)
-        // -----------------------------
-
         int top = verticalScroll;
-        int safeBottom = verticalScroll + viewportHeight - 3; // 1 row buffer
+        int safeBottom = verticalScroll + viewportHeight - 3;
 
         if (cursorRow < top)
         {
@@ -260,14 +291,10 @@ public class ConsoleStateManager : MonoBehaviour
         int maxScroll = Mathf.Max(0, lines.Count - viewportHeight);
         verticalScroll = Mathf.Clamp(verticalScroll, 0, maxScroll);
 
-        // -----------------------------
-        // Horizontal scroll (NEW BUFFER)
-        // -----------------------------
-
         int padding = GetLineCountPadding();
 
         int left = horizontalScroll;
-        int safeRight = horizontalScroll + viewportWidth - 2 - padding; // 1 column buffer
+        int safeRight = horizontalScroll + viewportWidth - 2 - padding;
 
         if (visibleCursorCol < left)
         {
@@ -278,7 +305,6 @@ public class ConsoleStateManager : MonoBehaviour
             horizontalScroll = visibleCursorCol - (viewportWidth - 2 - padding);
         }
 
-        // Keep slight left-side breathing room like before
         if (horizontalScroll > visibleCursorCol - 4)
         {
             horizontalScroll = Mathf.Max(0, visibleCursorCol - 4);
@@ -721,32 +747,19 @@ public class ConsoleStateManager : MonoBehaviour
 
         for (int i = 0; i < lines.Count; i++)
         {
-            Line normalized = NormalizeLine(lines[i]);
-            lines[i] = normalized;
+            Line line = lines[i];
+            lines[i] = new Line(line.content ?? string.Empty, line.locked);
         }
 
         if (lines.Count == 0)
             lines.Add(new Line(string.Empty, false));
     }
 
-    private Line NormalizeLine(Line line)
-    {
-        string content = line.content ?? string.Empty;
-        bool locked = line.locked;
-
-        if (content.StartsWith(LockPrefix, StringComparison.Ordinal))
-        {
-            locked = true;
-            content = content.Substring(LockPrefix.Length);
-        }
-
-        return new Line(content, locked);
-    }
-
     private Line ParseSerializedLine(string raw)
     {
         if (raw == null)
             raw = string.Empty;
+
         if (raw.StartsWith(LockPrefix, StringComparison.Ordinal))
             return new Line(raw.Substring(LockPrefix.Length), true);
 

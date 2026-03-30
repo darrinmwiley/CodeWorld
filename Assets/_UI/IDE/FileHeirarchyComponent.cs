@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Reflection;
 using UnityEngine;
 using UnityEngine.UIElements;
 
@@ -13,6 +14,8 @@ public class FileHierarchyComponent : WindowComponent
 
     [Header("Bindings")]
     [SerializeField] private TabbedConsoleWindowController _tabbedContent;
+    [SerializeField] private ConsoleStateManager _consoleStateManager;
+    [SerializeField] private ConsoleLevelFileSet _fileSet;
     [SerializeField] private string _treeViewElementName = "FileTree";
 
     [Header("Appearance")]
@@ -24,6 +27,9 @@ public class FileHierarchyComponent : WindowComponent
     [SerializeField] private float _scrollbarThickness = 10f;
     [SerializeField] private float _minThumbHeight = 24f;
     [SerializeField] private float _wheelStep = 24f;
+
+    [Header("Runtime")]
+    [SerializeField] private bool _preserveEditsWhenSwitchingFiles = true;
 
     [Header("Debug")]
     [SerializeField] private bool _verboseLogging = false;
@@ -37,12 +43,17 @@ public class FileHierarchyComponent : WindowComponent
 
     private readonly List<ExplorerItem> _rootItems = new List<ExplorerItem>();
     private readonly List<RowVisual> _rowVisuals = new List<RowVisual>();
+    private readonly Dictionary<string, ConsoleLevelFileEntry> _entriesByPath = new Dictionary<string, ConsoleLevelFileEntry>(StringComparer.OrdinalIgnoreCase);
+    private readonly Dictionary<string, List<ConsoleStateManager.Line>> _runtimeDocuments = new Dictionary<string, List<ConsoleStateManager.Line>>(StringComparer.OrdinalIgnoreCase);
 
     private float _scrollOffset;
     private float _contentHeight;
     private bool _draggingThumb;
     private float _thumbDragStartMouseY;
     private float _thumbDragStartOffset;
+
+    private string _currentOpenFilePath;
+    private ConsoleStateManager _activeStateManager;
 
     public event Action<VirtualFileNode> FileClicked;
 
@@ -67,13 +78,22 @@ public class FileHierarchyComponent : WindowComponent
         _mainView.style.overflow = Overflow.Hidden;
         container.Add(_mainView);
 
+        _activeStateManager = _consoleStateManager;
+
         BuildCustomExplorerHost();
-        BuildMockData();
+        BuildFileTreeFromInjectedFileSet();
         RebuildVisibleRows();
         ApplyTheme(_theme);
 
         InitializeSubComponents(_mainView, root);
         Log("Initialize complete.");
+    }
+
+    public void SetFileSet(ConsoleLevelFileSet fileSet)
+    {
+        _fileSet = fileSet;
+        BuildFileTreeFromInjectedFileSet();
+        RebuildVisibleRows();
     }
 
     public void ApplyTheme(UITheme theme)
@@ -85,7 +105,6 @@ public class FileHierarchyComponent : WindowComponent
         Color surface = _theme.backgroundSurface;
         Color active = _theme.backgroundActive;
         Color text = _theme.text;
-        Color border = _theme.border;
         Color track = new Color(text.r, text.g, text.b, 0.08f);
         Color thumb = new Color(text.r, text.g, text.b, 0.34f);
 
@@ -367,52 +386,84 @@ public class FileHierarchyComponent : WindowComponent
         _scrollbarThumb.style.height = thumbHeight;
     }
 
-    private void BuildMockData()
+    private void BuildFileTreeFromInjectedFileSet()
     {
         _rootItems.Clear();
+        _entriesByPath.Clear();
+        _runtimeDocuments.Clear();
+        _currentOpenFilePath = null;
 
-        ExplorerItem assets = Dir("Assets", "Assets",
-            File("Player.cs", "Assets/Player.cs"),
-            File("Utils.cs", "Assets/Utils.cs"),
-            Dir("Scripts", "Assets/Scripts",
-                File("CameraController.cs", "Assets/Scripts/CameraController.cs"),
-                Dir("UI", "Assets/Scripts/UI",
-                    File("HUDController.cs", "Assets/Scripts/UI/HUDController.cs"),
-                    File("InventoryWindow.cs", "Assets/Scripts/UI/InventoryWindow.cs")
-                )
-            ),
-            Dir("Art", "Assets/Art",
-                Dir("Sprites", "Assets/Art/Sprites",
-                    File("player_idle.png", "Assets/Art/Sprites/player_idle.png"),
-                    File("player_run.png", "Assets/Art/Sprites/player_run.png")
-                ),
-                File("icon.png", "Assets/Art/icon.png")
-            ),
-            Dir("Scenes", "Assets/Scenes",
-                File("Main.unity", "Assets/Scenes/Main.unity"),
-                File("Test.unity", "Assets/Scenes/Test.unity")
-            )
-        );
+        if (_fileSet == null || _fileSet.files == null)
+        {
+            Log("No injected file set assigned.");
+            return;
+        }
 
-        ExplorerItem packages = Dir("Packages", "Packages",
-            File("manifest.json", "Packages/manifest.json"),
-            File("packages-lock.json", "Packages/packages-lock.json")
-        );
+        for (int i = 0; i < _fileSet.files.Count; i++)
+        {
+            ConsoleLevelFileEntry entry = _fileSet.files[i];
+            if (entry == null)
+                continue;
 
-        ExplorerItem docs = Dir("Docs", "Docs",
-            File("Readme.md", "Docs/Readme.md"),
-            Dir("Design", "Docs/Design",
-                File("Combat.md", "Docs/Design/Combat.md"),
-                File("Economy.md", "Docs/Design/Economy.md")
-            )
-        );
+            string normalizedPath = NormalizePath(entry.virtualPath);
+            if (string.IsNullOrWhiteSpace(normalizedPath))
+                continue;
 
-        _rootItems.Add(assets);
-        _rootItems.Add(packages);
-        _rootItems.Add(docs);
-        _rootItems.Add(File("Config.yaml", "Config.yaml"));
-        _rootItems.Add(File("ProjectSettings.asset", "ProjectSettings.asset"));
-        _rootItems.Add(File(".gitignore", ".gitignore"));
+            _entriesByPath[normalizedPath] = entry;
+            _runtimeDocuments[normalizedPath] = BuildLinesForEntry(entry);
+            AddPathToTree(normalizedPath);
+        }
+    }
+
+    private void AddPathToTree(string normalizedPath)
+    {
+        string[] segments = normalizedPath.Split(new[] { '/' }, StringSplitOptions.RemoveEmptyEntries);
+        if (segments.Length == 0)
+            return;
+
+        List<ExplorerItem> currentLevel = _rootItems;
+        string runningPath = string.Empty;
+
+        for (int i = 0; i < segments.Length; i++)
+        {
+            string segment = segments[i];
+            bool isLeaf = i == segments.Length - 1;
+            runningPath = string.IsNullOrEmpty(runningPath) ? segment : runningPath + "/" + segment;
+
+            ExplorerItem child = FindChild(currentLevel, segment, !isLeaf);
+            if (child == null)
+            {
+                child = isLeaf
+                    ? File(segment, runningPath)
+                    : Dir(segment, runningPath);
+
+                currentLevel.Add(child);
+            }
+
+            if (!isLeaf)
+                currentLevel = child.Children;
+        }
+    }
+
+    private ExplorerItem FindChild(List<ExplorerItem> children, string name, bool isDirectory)
+    {
+        if (children == null)
+            return null;
+
+        for (int i = 0; i < children.Count; i++)
+        {
+            ExplorerItem child = children[i];
+            if (child == null)
+                continue;
+
+            if (child.IsDirectory == isDirectory &&
+                string.Equals(child.Node.Name, name, StringComparison.OrdinalIgnoreCase))
+            {
+                return child;
+            }
+        }
+
+        return null;
     }
 
     private ExplorerItem Dir(string name, string path, params ExplorerItem[] children)
@@ -602,8 +653,273 @@ public class FileHierarchyComponent : WindowComponent
         if (node == null || node.IsDirectory)
             return;
 
+        SaveCurrentOpenDocument();
+
+        object openResult = InvokeTabbedOpenFile(node);
+        ConsoleStateManager targetStateManager = ResolveStateManagerFromOpenResult(openResult);
+
+        if (targetStateManager == null)
+            targetStateManager = _consoleStateManager;
+
+        if (targetStateManager == null)
+        {
+            Debug.LogWarning("[FileHierarchy] No ConsoleStateManager available to load document content.", this);
+            return;
+        }
+
+        LoadDocumentIntoConsole(node.Path, targetStateManager);
         FileClicked?.Invoke(node);
-        _tabbedContent?.OpenFile(node);
+    }
+
+    private object InvokeTabbedOpenFile(VirtualFileNode node)
+    {
+        if (_tabbedContent == null || node == null)
+            return null;
+
+        try
+        {
+            MethodInfo[] methods = _tabbedContent.GetType().GetMethods(BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+            for (int i = 0; i < methods.Length; i++)
+            {
+                MethodInfo method = methods[i];
+                if (!string.Equals(method.Name, "OpenFile", StringComparison.Ordinal))
+                    continue;
+
+                ParameterInfo[] parameters = method.GetParameters();
+                if (parameters.Length != 1)
+                    continue;
+
+                Type paramType = parameters[0].ParameterType;
+                if (!paramType.IsAssignableFrom(node.GetType()))
+                    continue;
+
+                return method.Invoke(_tabbedContent, new object[] { node });
+            }
+
+            Log("No matching OpenFile(VirtualFileNode) method found on tabbed content.");
+        }
+        catch (Exception e)
+        {
+            Debug.LogWarning($"[FileHierarchy] Failed to invoke tabbed OpenFile: {e.Message}", this);
+        }
+
+        return null;
+    }
+
+    private ConsoleStateManager ResolveStateManagerFromOpenResult(object openResult)
+    {
+        if (openResult == null)
+            return null;
+
+        if (openResult is ConsoleStateManager directStateManager)
+            return directStateManager;
+
+        Type resultType = openResult.GetType();
+
+        try
+        {
+            FieldInfo stateField = resultType.GetField("stateManager", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+            if (stateField != null)
+            {
+                object value = stateField.GetValue(openResult);
+                if (value is ConsoleStateManager fieldStateManager)
+                    return fieldStateManager;
+            }
+
+            PropertyInfo stateProperty = resultType.GetProperty("stateManager", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+            if (stateProperty != null)
+            {
+                object value = stateProperty.GetValue(openResult, null);
+                if (value is ConsoleStateManager propertyStateManager)
+                    return propertyStateManager;
+            }
+
+            PropertyInfo pascalProperty = resultType.GetProperty("StateManager", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+            if (pascalProperty != null)
+            {
+                object value = pascalProperty.GetValue(openResult, null);
+                if (value is ConsoleStateManager pascalStateManager)
+                    return pascalStateManager;
+            }
+        }
+        catch (Exception e)
+        {
+            Debug.LogWarning($"[FileHierarchy] Failed to resolve state manager from tab open result: {e.Message}", this);
+        }
+
+        return null;
+    }
+
+    private void SaveCurrentOpenDocument()
+    {
+        if (!_preserveEditsWhenSwitchingFiles)
+            return;
+
+        if (string.IsNullOrWhiteSpace(_currentOpenFilePath))
+            return;
+
+        ConsoleStateManager sourceStateManager = _activeStateManager != null ? _activeStateManager : _consoleStateManager;
+        if (sourceStateManager == null)
+            return;
+
+        _runtimeDocuments[_currentOpenFilePath] = sourceStateManager.ExportLines();
+    }
+
+    private void LoadDocumentIntoConsole(string path, ConsoleStateManager targetStateManager)
+    {
+        if (targetStateManager == null)
+        {
+            Debug.LogWarning("[FileHierarchy] No target ConsoleStateManager assigned.", this);
+            return;
+        }
+
+        string normalizedPath = NormalizePath(path);
+        if (string.IsNullOrWhiteSpace(normalizedPath))
+            return;
+
+        if (!_runtimeDocuments.TryGetValue(normalizedPath, out List<ConsoleStateManager.Line> documentLines))
+        {
+            if (_entriesByPath.TryGetValue(normalizedPath, out ConsoleLevelFileEntry entry))
+            {
+                documentLines = BuildLinesForEntry(entry);
+                _runtimeDocuments[normalizedPath] = documentLines;
+            }
+            else
+            {
+                documentLines = new List<ConsoleStateManager.Line>
+                {
+                    new ConsoleStateManager.Line(string.Empty, false)
+                };
+            }
+        }
+
+        targetStateManager.LoadLines(CloneLines(documentLines));
+        _activeStateManager = targetStateManager;
+        _currentOpenFilePath = normalizedPath;
+    }
+
+    private List<ConsoleStateManager.Line> BuildLinesForEntry(ConsoleLevelFileEntry entry)
+    {
+        string text = entry != null && entry.fileAsset != null ? entry.fileAsset.text : string.Empty;
+        text = NormalizeNewlines(text);
+
+        string[] rawLines = text.Split('\n');
+        if (rawLines == null || rawLines.Length == 0)
+            rawLines = new[] { string.Empty };
+
+        HashSet<int> lockedLineIndices = ParseLockedLineSpec(entry != null ? entry.lockedLines : null, rawLines.Length);
+
+        List<ConsoleStateManager.Line> result = new List<ConsoleStateManager.Line>(rawLines.Length);
+        for (int i = 0; i < rawLines.Length; i++)
+            result.Add(new ConsoleStateManager.Line(rawLines[i], lockedLineIndices.Contains(i)));
+
+        return result;
+    }
+
+    private HashSet<int> ParseLockedLineSpec(string spec, int lineCount)
+    {
+        HashSet<int> locked = new HashSet<int>();
+
+        if (lineCount <= 0 || string.IsNullOrWhiteSpace(spec))
+            return locked;
+
+        string[] tokens = spec.Split(',');
+        for (int i = 0; i < tokens.Length; i++)
+        {
+            string token = tokens[i].Trim();
+            if (string.IsNullOrEmpty(token))
+                continue;
+
+            if (string.Equals(token, "all", StringComparison.OrdinalIgnoreCase))
+            {
+                for (int line = 0; line < lineCount; line++)
+                    locked.Add(line);
+                continue;
+            }
+
+            string[] rangeParts = token.Split('-');
+            if (rangeParts.Length == 2)
+            {
+                if (!int.TryParse(rangeParts[0].Trim(), out int start1Based) ||
+                    !int.TryParse(rangeParts[1].Trim(), out int end1Based))
+                {
+                    Debug.LogWarning($"[FileHierarchy] Invalid lock token '{token}' on {gameObject.name}", this);
+                    continue;
+                }
+
+                if (end1Based < start1Based)
+                {
+                    int temp = start1Based;
+                    start1Based = end1Based;
+                    end1Based = temp;
+                }
+
+                start1Based = Mathf.Clamp(start1Based, 1, lineCount);
+                end1Based = Mathf.Clamp(end1Based, 1, lineCount);
+
+                for (int line = start1Based; line <= end1Based; line++)
+                    locked.Add(line - 1);
+
+                continue;
+            }
+
+            if (int.TryParse(token, out int single1Based))
+            {
+                if (single1Based >= 1 && single1Based <= lineCount)
+                {
+                    locked.Add(single1Based - 1);
+                }
+                else
+                {
+                    Debug.LogWarning($"[FileHierarchy] Lock line '{single1Based}' is out of range 1-{lineCount} on {gameObject.name}", this);
+                }
+
+                continue;
+            }
+
+            Debug.LogWarning($"[FileHierarchy] Invalid lock token '{token}' on {gameObject.name}. Supported forms: all, N, N-M", this);
+        }
+
+        return locked;
+    }
+
+    private List<ConsoleStateManager.Line> CloneLines(List<ConsoleStateManager.Line> source)
+    {
+        List<ConsoleStateManager.Line> clone = new List<ConsoleStateManager.Line>();
+        if (source == null)
+            return clone;
+
+        for (int i = 0; i < source.Count; i++)
+        {
+            ConsoleStateManager.Line line = source[i];
+            clone.Add(new ConsoleStateManager.Line(line.content, line.locked));
+        }
+
+        return clone;
+    }
+
+    private string NormalizePath(string path)
+    {
+        if (string.IsNullOrWhiteSpace(path))
+            return string.Empty;
+
+        path = path.Replace('\\', '/').Trim();
+
+        while (path.StartsWith("/"))
+            path = path.Substring(1);
+
+        while (path.EndsWith("/"))
+            path = path.Substring(0, path.Length - 1);
+
+        return path;
+    }
+
+    private string NormalizeNewlines(string text)
+    {
+        if (string.IsNullOrEmpty(text))
+            return string.Empty;
+
+        return text.Replace("\r\n", "\n").Replace('\r', '\n');
     }
 
     private void Log(string message)
