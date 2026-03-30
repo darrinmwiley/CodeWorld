@@ -11,6 +11,9 @@ public class ConsoleWindowController : WindowComponent
     public ConsoleRenderer rendererManager;
     public ConsoleInputManager inputManager;
 
+    [Header("Session")]
+    [SerializeField] private ConsoleFileSessionManager _fileSessionManager;
+
     [Header("UI Constraints")]
     public Vector2 minConsoleSize = new Vector2(200f, 150f);
     public string outputElementName = "Content";
@@ -41,16 +44,22 @@ public class ConsoleWindowController : WindowComponent
 
     private void OnEnable()
     {
-        if (!s_allConsoles.Contains(this)) s_allConsoles.Add(this);
+        if (!s_allConsoles.Contains(this))
+            s_allConsoles.Add(this);
     }
 
-    private void OnDisable() => s_allConsoles.Remove(this);
+    private void OnDisable()
+    {
+        _fileSessionManager?.SaveDocumentForStateManager(stateManager);
+        s_allConsoles.Remove(this);
+    }
 
     public override void Initialize(VisualElement container, IBaseWindow root)
     {
         container.style.flexGrow = 1;
         UIDocument rootDoc = null;
-        if (root is MonoBehaviour monoRoot) rootDoc = monoRoot.GetComponent<UIDocument>();
+        if (root is MonoBehaviour monoRoot)
+            rootDoc = monoRoot.GetComponent<UIDocument>();
 
         BindToElement(container, rootDoc);
         InitializeSubComponents(container, root);
@@ -60,7 +69,9 @@ public class ConsoleWindowController : WindowComponent
 
     public void BindToElement(VisualElement element, UIDocument doc)
     {
-        if (element == null) return;
+        if (element == null)
+            return;
+
         _outputVE = element;
         uiDocument = doc;
 
@@ -69,21 +80,29 @@ public class ConsoleWindowController : WindowComponent
         inputManager.Initialize();
 
         HookToUIToolkit();
+
+        if (_fileSessionManager != null)
+            _fileSessionManager.RestoreActiveDocument(stateManager);
     }
 
     private void HookToUIToolkit()
     {
-        if (_outputVE == null) return;
+        if (_outputVE == null)
+            return;
 
         BindRenderTextureToOutput();
 
-        if (_uiHooked) return;
+        if (_uiHooked)
+            return;
+
         _uiHooked = true;
 
         _outputVE.focusable = true;
         _outputVE.RegisterCallback<PointerDownEvent>(evt =>
         {
-            if (evt.button != (int)MouseButton.LeftMouse) return;
+            if (evt.button != (int)MouseButton.LeftMouse)
+                return;
+
             FocusFromInteraction();
             evt.StopPropagation();
         });
@@ -91,14 +110,13 @@ public class ConsoleWindowController : WindowComponent
         _outputVE.RegisterCallback<GeometryChangedEvent>(OnOutputGeometryChanged);
 
         if (inputManager.mouseListener != null)
-        {
             inputManager.mouseListener.Bind(_outputVE);
-        }
     }
 
     private void BindRenderTextureToOutput()
     {
-        if (_outputVE == null || rendererManager.RenderTex == null) return;
+        if (_outputVE == null || rendererManager.RenderTex == null)
+            return;
 
         int displayWidth = rendererManager.DisplayTextureWidth > 0 ? rendererManager.DisplayTextureWidth : rendererManager.RenderTex.width;
         int displayHeight = rendererManager.DisplayTextureHeight > 0 ? rendererManager.DisplayTextureHeight : rendererManager.RenderTex.height;
@@ -113,15 +131,22 @@ public class ConsoleWindowController : WindowComponent
 
     private void OnOutputGeometryChanged(GeometryChangedEvent evt)
     {
-        if (!autoFitToWindow || _outputVE == null || rendererManager.RenderTex == null) return;
-        if (_autoFitRoutine != null) StopCoroutine(_autoFitRoutine);
+        if (!autoFitToWindow || _outputVE == null || rendererManager.RenderTex == null)
+            return;
+
+        if (_autoFitRoutine != null)
+            StopCoroutine(_autoFitRoutine);
+
         _autoFitRoutine = StartCoroutine(AutoFitAfterDelay());
     }
 
     private IEnumerator AutoFitAfterDelay()
     {
         yield return null;
-        if (geometryPollDelay > 0f) yield return new WaitForSeconds(geometryPollDelay);
+
+        if (geometryPollDelay > 0f)
+            yield return new WaitForSeconds(geometryPollDelay);
+
         _autoFitRoutine = null;
         ApplyAutoFitFromElement();
     }
@@ -130,7 +155,8 @@ public class ConsoleWindowController : WindowComponent
     {
         float w = _outputVE.resolvedStyle.width;
         float h = _outputVE.resolvedStyle.height;
-        if (w <= 1f || h <= 1f) return;
+        if (w <= 1f || h <= 1f)
+            return;
 
         float displayWidth = Mathf.Max(1f, rendererManager.DisplayTextureWidth);
         float displayHeight = Mathf.Max(1f, rendererManager.DisplayTextureHeight);
@@ -150,7 +176,8 @@ public class ConsoleWindowController : WindowComponent
             maxViewportHeight
         );
 
-        if (desiredCols == stateManager.viewportWidth && desiredRows == stateManager.viewportHeight) return;
+        if (desiredCols == stateManager.viewportWidth && desiredRows == stateManager.viewportHeight)
+            return;
 
         ResizeViewport(desiredCols, desiredRows);
     }
@@ -176,25 +203,36 @@ public class ConsoleWindowController : WindowComponent
 
     public void BringToFront()
     {
-        if (_outputVE == null) return;
+        if (_outputVE == null)
+            return;
+
         VisualElement windowRoot = _outputVE;
         while (windowRoot.parent != null && (uiDocument == null || windowRoot.parent != uiDocument.rootVisualElement))
             windowRoot = windowRoot.parent;
+
         windowRoot?.BringToFront();
 
         if (uiDocument != null)
         {
             int maxSortOrder = 0;
             foreach (var console in s_allConsoles)
+            {
                 if (console != null && console.uiDocument != null)
-                    maxSortOrder = (int)(Mathf.Max(maxSortOrder, console.uiDocument.sortingOrder));
+                    maxSortOrder = (int)Mathf.Max(maxSortOrder, console.uiDocument.sortingOrder);
+            }
+
             uiDocument.sortingOrder = maxSortOrder + 1;
         }
     }
 
     public void FocusFromInteraction()
     {
-        foreach (var c in s_allConsoles) if (c != null && c != this) c.DefocusInternal();
+        foreach (var c in s_allConsoles)
+        {
+            if (c != null && c != this)
+                c.DefocusInternal();
+        }
+
         IsFocused = true;
         BringToFront();
         _outputVE?.Focus();
@@ -212,25 +250,34 @@ public class ConsoleWindowController : WindowComponent
 
     public static void DefocusAllAndRecaptureMouse(CursorLockMode lockMode, bool visible)
     {
-        foreach (var c in s_allConsoles) if (c != null) c.DefocusInternal();
+        foreach (var c in s_allConsoles)
+        {
+            if (c != null)
+                c.DefocusInternal();
+        }
+
         UnityEngine.Cursor.lockState = lockMode;
         UnityEngine.Cursor.visible = visible;
     }
 
     public bool IsPointerInsideThisConsole(Vector3 mousePos)
     {
-        if (_outputVE == null || _outputVE.panel == null) return false;
+        if (_outputVE == null || _outputVE.panel == null)
+            return false;
+
         Vector2 panelPos = RuntimePanelUtils.ScreenToPanel(_outputVE.panel, mousePos);
         return _outputVE.worldBound.Contains(panelPos);
     }
 
     public Vector2Int GetCursorLocationForMouse(Vector2 currentMousePosition)
     {
-        if (_outputVE == null || rendererManager.RenderTex == null) return Vector2Int.zero;
+        if (_outputVE == null || rendererManager.RenderTex == null)
+            return Vector2Int.zero;
 
         float elemW = _outputVE.resolvedStyle.width;
         float elemH = _outputVE.resolvedStyle.height;
-        if (elemW <= 0 || elemH <= 0) return Vector2Int.zero;
+        if (elemW <= 0 || elemH <= 0)
+            return Vector2Int.zero;
 
         float displayWidth = Mathf.Max(1f, rendererManager.DisplayTextureWidth);
         float displayHeight = Mathf.Max(1f, rendererManager.DisplayTextureHeight);
