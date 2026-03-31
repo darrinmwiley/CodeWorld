@@ -1,0 +1,129 @@
+# CodeWorld Critical Path: Adding New Java-to-Unity Interactions
+
+This guide explains how to add a new "Actor" or "Object" that a player can interact with via Java code. We use a "Network Pointer" pattern where Java finds a Unity object and sends commands to its specific ID.
+
+---
+
+### Phase 1: The Contract (Protobuf)
+File: `proto/game.proto`
+
+1. **Define the Job**: Create a message for your new command.
+   ```protobuf
+   message SetLightColorJob {
+     string target_id = 1; // Always include this!
+     float r = 2;
+     float g = 3;
+     float b = 4;
+   }
+   ```
+2. **Register the Event**: Add it to the `oneof event` block inside `ExecuteResponse`.
+   ```protobuf
+   message ExecuteResponse {
+     oneof event {
+       // ... existing jobs ...
+       SetLightColorJob set_light_color = 7;
+     }
+   }
+   ```
+
+---
+
+### Phase 2: The Java Interface
+Directory: `java-server/src/main/java/com/codeworld/server/`
+
+1. **Create the Interface**: Define what the player sees.
+   ```java
+   public interface Light {
+       void setColor(float r, float g, float b);
+   }
+   ```
+2. **Create the Proxy**: This class implements the interface but just sends gRPC messages.
+   ```java
+   public class LightProxy implements Light {
+       private final String targetId;
+       public LightProxy(String id) { this.targetId = id; }
+
+       public void setColor(float r, float g, float b) {
+           ExecutionContext.get().getResponseObserver().onNext(
+               ExecuteResponse.newBuilder()
+                   .setSetLightColor(SetLightColorJob.newBuilder()
+                       .setTargetId(targetId).setR(r).setG(g).setB(b).build())
+                   .build());
+       }
+   }
+   ```
+3. **Update GameUtils**: Add your new type to `GameUtils.findObjectInLevel`.
+   ```java
+   if (type == Light.class) return (T) new LightProxy(objectId);
+   ```
+
+---
+
+### Phase 3: The Unity Client
+Directory: `Assets/Scripts/`
+
+1. **Create the Component**: Inherit from `CodeWorldObject`.
+   ```csharp
+   public class LightComponent : CodeWorldObject {
+       protected override void Awake() {
+           base.Awake();
+           ((List<string>)ImplementedApis).Add("Light"); // Register for lookups
+       }
+
+       public override void HandleRpcRequest(string requestType, object payload) {
+           if (requestType == "SetColor" && payload is float[] colors) {
+               GetComponent<Light>().color = new Color(colors[0], colors[1], colors[2]);
+           }
+       }
+   }
+   ```
+2. **Update CodeExecutor**: Add your new job to the `ReadLoop` in `CodeExecutor.cs`.
+   ```csharp
+   case ExecuteResponse.EventOneofCase.SetLightColor:
+       var job = response.SetLightColor;
+       DispatchRpc(job.TargetId, "SetColor", new float[] { job.R, job.G, job.B });
+       break;
+   ```
+
+---
+
+### Phase 4: Synchronizing (The Build Step)
+
+After you've updated the proto, Java, and Unity files, you MUST run these commands to sync everything:
+
+1. **Regenerate C# gRPC Classes**:
+   Run this from the project root (CodeWorld/) to update the Unity Rpc/Generated folder:
+   ```powershell
+   protoc -I=proto --csharp_out=Assets\Rpc\Generated --grpc_out=Assets\Rpc\Generated --plugin=protoc-gen-grpc=C:\Users\Darrin\.nuget\packages\grpc.tools\2.66.0\tools\windows_x64\grpc_csharp_plugin.exe proto\game.proto
+   ```
+
+2. **Rebuild & Start Java Server**:
+   Run these from the `java-server/` directory:
+   ```powershell
+   .\gradlew build
+   .\gradlew run
+   ```
+
+3. **Setup Scene**: 
+   - Add your new `LightComponent` to a GameObject in Unity.
+   - Assign a Unique ID (or leave blank for auto-GUID).
+   - Add "Light" to the `Implemented Apis` list in the Inspector.
+
+---
+
+### Final Result (Player Code)
+```java
+package com.codeworld.server;
+
+public class MyScript {
+    public static void main(String[] args) {
+        // 1. Find the object by its API type
+        Light myLight = GameUtils.findObjectInLevel(Light.class);
+        
+        // 2. Interact!
+        if (myLight != null) {
+            myLight.setColor(1.0f, 0.0f, 0.0f); // Turn it red!
+        }
+    }
+}
+```
