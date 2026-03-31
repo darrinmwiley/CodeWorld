@@ -5,6 +5,7 @@ option java_multiple_files = true;
 
 service CodeWorldService {
   rpc StreamObjectData (stream ObjectStatus) returns (stream ColorRequest);
+  rpc ExecuteCodeStream (stream ExecuteRequest) returns (stream ExecuteResponse);
 }
 
 message ColorRequest {
@@ -16,3 +17,46 @@ message ColorRequest {
 message ObjectStatus {
   string message = 1;
 }
+
+// Data structures for Java script execution
+message ExecuteRequest {
+  oneof payload {
+    string java_code = 1;
+    FindObjectResult find_object_result = 2;
+  }
+}
+
+message FindObjectResult {
+  string query_id = 1;
+  string object_id = 2; // Empty if not found
+}
+
+message FindObjectQuery {
+  string query_id = 1;
+  string api_name = 2;
+}
+
+message PrintIntJob {
+  string target_id = 1;
+  int32 value = 2;
+}
+
+message PrintDoubleJob {
+  string target_id = 1;
+  double value = 2;
+}
+
+message PrintBoolJob {
+  string target_id = 1;
+  bool value = 2;
+}
+
+message ExecuteResponse {
+  oneof event {
+    PrintIntJob print_int = 1;
+    PrintDoubleJob print_double = 2;
+    PrintBoolJob print_bool = 3;
+    string execution_completed = 4;
+    FindObjectQuery find_object_query = 5;
+  }
+}

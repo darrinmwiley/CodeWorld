@@ -680,7 +680,7 @@ MeshRenderer:
   m_RenderingLayerMask: 1
   m_RendererPriority: 0
   m_Materials:
-  - {fileID: 648350990}
+  - {fileID: 1967227379}
   m_StaticBatchInfo:
     firstSubMesh: 0
     subMeshCount: 0
@@ -2952,12 +2952,12 @@ MonoBehaviour:
     - label: Save
       commandCode: save
   _toolbarButtons:
-  - icon: {fileID: 2800000, guid: c5359b0acb1c0d849a2501da32f07ab3, type: 3}
-    tooltip: poop
-    commandCode: poop
-  - icon: {fileID: 0}
-    tooltip: 
-    commandCode: 
+  - icon: {fileID: 2800000, guid: bc7ec7d949ad06044ad561ab951bde3d, type: 3}
+    tooltip: build
+    commandCode: build
+  - icon: {fileID: 2800000, guid: 5a92685e5aeedee43837661e8aa63369, type: 3}
+    tooltip: run
+    commandCode: PLAY_CODE
 --- !u!1001 &196967405
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -5457,7 +5457,7 @@ MeshRenderer:
   m_RenderingLayerMask: 1
   m_RendererPriority: 0
   m_Materials:
-  - {fileID: 907668003}
+  - {fileID: 1428555440}
   m_StaticBatchInfo:
     firstSubMesh: 0
     subMeshCount: 0
@@ -8045,51 +8045,6 @@ PrefabInstance:
     m_AddedGameObjects: []
     m_AddedComponents: []
   m_SourcePrefab: {fileID: 100100000, guid: 2f440b6e54217894c892fec89b066795, type: 3}
---- !u!21 &648350990
-Material:
-  serializedVersion: 8
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_Name: colored (Instance)
-  m_Shader: {fileID: -6465566751694194690, guid: 62a54f2b0fb451f43909cb661e7582fc,
-    type: 3}
-  m_Parent: {fileID: 0}
-  m_ModifiedSerializedProperties: 0
-  m_ValidKeywords: []
-  m_InvalidKeywords: []
-  m_LightmapFlags: 4
-  m_EnableInstancingVariants: 0
-  m_DoubleSidedGI: 0
-  m_CustomRenderQueue: -1
-  stringTagMap: {}
-  disabledShaderPasses:
-  - MOTIONVECTORS
-  m_LockedProperties: 
-  m_SavedProperties:
-    serializedVersion: 3
-    m_TexEnvs:
-    - unity_Lightmaps:
-        m_Texture: {fileID: 0}
-        m_Scale: {x: 1, y: 1}
-        m_Offset: {x: 0, y: 0}
-    - unity_LightmapsInd:
-        m_Texture: {fileID: 0}
-        m_Scale: {x: 1, y: 1}
-        m_Offset: {x: 0, y: 0}
-    - unity_ShadowMasks:
-        m_Texture: {fileID: 0}
-        m_Scale: {x: 1, y: 1}
-        m_Offset: {x: 0, y: 0}
-    m_Ints: []
-    m_Floats:
-    - _QueueControl: 0
-    - _QueueOffset: 0
-    m_Colors:
-    - _color: {r: 1, g: 0, b: 0, a: 1}
-  m_BuildTextureStacks: []
-  m_AllowLocking: 1
 --- !u!4 &650519632 stripped
 Transform:
   m_CorrespondingSourceObject: {fileID: 8420010664405424069, guid: 2f440b6e54217894c892fec89b066795,
@@ -9714,6 +9669,12 @@ PrefabInstance:
       propertyPath: cursorColor.r
       value: 0.8627451
       objectReference: {fileID: 0}
+    - target: {fileID: 2372929055191190424, guid: 0ea9ea8efad61d84a87cb37c3aee0b8a,
+        type: 3}
+      propertyPath: lockGlyphPrefab
+      value: 
+      objectReference: {fileID: 2760438915476414336, guid: 1c9fcd7ec21497244a16c3c8f266cf6d,
+        type: 3}
     - target: {fileID: 2372929055191190424, guid: 0ea9ea8efad61d84a87cb37c3aee0b8a,
         type: 3}
       propertyPath: syntaxHighlighter
@@ -11918,51 +11879,6 @@ Light:
   m_LightUnit: 1
   m_LuxAtDistance: 1
   m_EnableSpotReflector: 1
---- !u!21 &907668003
-Material:
-  serializedVersion: 8
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_Name: colored (Instance)
-  m_Shader: {fileID: -6465566751694194690, guid: 62a54f2b0fb451f43909cb661e7582fc,
-    type: 3}
-  m_Parent: {fileID: 0}
-  m_ModifiedSerializedProperties: 0
-  m_ValidKeywords: []
-  m_InvalidKeywords: []
-  m_LightmapFlags: 4
-  m_EnableInstancingVariants: 0
-  m_DoubleSidedGI: 0
-  m_CustomRenderQueue: -1
-  stringTagMap: {}
-  disabledShaderPasses:
-  - MOTIONVECTORS
-  m_LockedProperties: 
-  m_SavedProperties:
-    serializedVersion: 3
-    m_TexEnvs:
-    - unity_Lightmaps:
-        m_Texture: {fileID: 0}
-        m_Scale: {x: 1, y: 1}
-        m_Offset: {x: 0, y: 0}
-    - unity_LightmapsInd:
-        m_Texture: {fileID: 0}
-        m_Scale: {x: 1, y: 1}
-        m_Offset: {x: 0, y: 0}
-    - unity_ShadowMasks:
-        m_Texture: {fileID: 0}
-        m_Scale: {x: 1, y: 1}
-        m_Offset: {x: 0, y: 0}
-    m_Ints: []
-    m_Floats:
-    - _QueueControl: 0
-    - _QueueOffset: 0
-    m_Colors:
-    - _color: {r: 1, g: 0, b: 0, a: 1}
-  m_BuildTextureStacks: []
-  m_AllowLocking: 1
 --- !u!1 &918058290 stripped
 GameObject:
   m_CorrespondingSourceObject: {fileID: 2621364976329062830, guid: 2f440b6e54217894c892fec89b066795,
@@ -12106,6 +12022,9 @@ MonoBehaviour:
   _hierarchyAsset: {fileID: 9197481963319205126, guid: 216353702b540d8458500c50c2ec132c,
     type: 3}
   _tabbedContent: {fileID: 73608721}
+  _consoleStateManager: {fileID: 2027903553}
+  _fileSessionManager: {fileID: 2027903554}
+  _fileSet: {fileID: 11400000, guid: cc140d7755bb0514882ee39f2ef38184, type: 2}
   _treeViewElementName: FileTree
   _rowHeight: 22
   _fontSize: 11
@@ -13309,6 +13228,51 @@ GameObject:
     type: 3}
   m_PrefabInstance: {fileID: 1964821379}
   m_PrefabAsset: {fileID: 0}
+--- !u!21 &1061900854
+Material:
+  serializedVersion: 8
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_Name: colored (Instance)
+  m_Shader: {fileID: -6465566751694194690, guid: 62a54f2b0fb451f43909cb661e7582fc,
+    type: 3}
+  m_Parent: {fileID: 0}
+  m_ModifiedSerializedProperties: 0
+  m_ValidKeywords: []
+  m_InvalidKeywords: []
+  m_LightmapFlags: 4
+  m_EnableInstancingVariants: 0
+  m_DoubleSidedGI: 0
+  m_CustomRenderQueue: -1
+  stringTagMap: {}
+  disabledShaderPasses:
+  - MOTIONVECTORS
+  m_LockedProperties: 
+  m_SavedProperties:
+    serializedVersion: 3
+    m_TexEnvs:
+    - unity_Lightmaps:
+        m_Texture: {fileID: 0}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0}
+    - unity_LightmapsInd:
+        m_Texture: {fileID: 0}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0}
+    - unity_ShadowMasks:
+        m_Texture: {fileID: 0}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0}
+    m_Ints: []
+    m_Floats:
+    - _QueueControl: 0
+    - _QueueOffset: 0
+    m_Colors:
+    - _color: {r: 0, g: 0, b: 0, a: 0}
+  m_BuildTextureStacks: []
+  m_AllowLocking: 1
 --- !u!1001 &1065088853
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -15983,7 +15947,7 @@ MeshRenderer:
   m_RenderingLayerMask: 1
   m_RendererPriority: 0
   m_Materials:
-  - {fileID: 1544425428}
+  - {fileID: 1061900854}
   m_StaticBatchInfo:
     firstSubMesh: 0
     subMeshCount: 0
@@ -18439,6 +18403,51 @@ Transform:
     type: 3}
   m_PrefabInstance: {fileID: 1434005228}
   m_PrefabAsset: {fileID: 0}
+--- !u!21 &1428555440
+Material:
+  serializedVersion: 8
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_Name: colored (Instance)
+  m_Shader: {fileID: -6465566751694194690, guid: 62a54f2b0fb451f43909cb661e7582fc,
+    type: 3}
+  m_Parent: {fileID: 0}
+  m_ModifiedSerializedProperties: 0
+  m_ValidKeywords: []
+  m_InvalidKeywords: []
+  m_LightmapFlags: 4
+  m_EnableInstancingVariants: 0
+  m_DoubleSidedGI: 0
+  m_CustomRenderQueue: -1
+  stringTagMap: {}
+  disabledShaderPasses:
+  - MOTIONVECTORS
+  m_LockedProperties: 
+  m_SavedProperties:
+    serializedVersion: 3
+    m_TexEnvs:
+    - unity_Lightmaps:
+        m_Texture: {fileID: 0}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0}
+    - unity_LightmapsInd:
+        m_Texture: {fileID: 0}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0}
+    - unity_ShadowMasks:
+        m_Texture: {fileID: 0}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0}
+    m_Ints: []
+    m_Floats:
+    - _QueueControl: 0
+    - _QueueOffset: 0
+    m_Colors:
+    - _color: {r: 1, g: 0, b: 0, a: 1}
+  m_BuildTextureStacks: []
+  m_AllowLocking: 1
 --- !u!4 &1431346963 stripped
 Transform:
   m_CorrespondingSourceObject: {fileID: -8679921383154817045, guid: e92b4edcf33f59c4aa0f0240730d6b05,
@@ -19448,51 +19457,6 @@ GameObject:
     type: 3}
   m_PrefabInstance: {fileID: 1955264919}
   m_PrefabAsset: {fileID: 0}
---- !u!21 &1544425428
-Material:
-  serializedVersion: 8
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_Name: colored (Instance)
-  m_Shader: {fileID: -6465566751694194690, guid: 62a54f2b0fb451f43909cb661e7582fc,
-    type: 3}
-  m_Parent: {fileID: 0}
-  m_ModifiedSerializedProperties: 0
-  m_ValidKeywords: []
-  m_InvalidKeywords: []
-  m_LightmapFlags: 4
-  m_EnableInstancingVariants: 0
-  m_DoubleSidedGI: 0
-  m_CustomRenderQueue: -1
-  stringTagMap: {}
-  disabledShaderPasses:
-  - MOTIONVECTORS
-  m_LockedProperties: 
-  m_SavedProperties:
-    serializedVersion: 3
-    m_TexEnvs:
-    - unity_Lightmaps:
-        m_Texture: {fileID: 0}
-        m_Scale: {x: 1, y: 1}
-        m_Offset: {x: 0, y: 0}
-    - unity_LightmapsInd:
-        m_Texture: {fileID: 0}
-        m_Scale: {x: 1, y: 1}
-        m_Offset: {x: 0, y: 0}
-    - unity_ShadowMasks:
-        m_Texture: {fileID: 0}
-        m_Scale: {x: 1, y: 1}
-        m_Offset: {x: 0, y: 0}
-    m_Ints: []
-    m_Floats:
-    - _QueueControl: 0
-    - _QueueOffset: 0
-    m_Colors:
-    - _color: {r: 0, g: 0, b: 0, a: 0}
-  m_BuildTextureStacks: []
-  m_AllowLocking: 1
 --- !u!1 &1560912491
 GameObject:
   m_ObjectHideFlags: 0
@@ -20502,6 +20466,54 @@ Transform:
     type: 3}
   m_PrefabInstance: {fileID: 1611338241}
   m_PrefabAsset: {fileID: 0}
+--- !u!1 &1622444588
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1622444590}
+  - component: {fileID: 1622444589}
+  m_Layer: 0
+  m_Name: GRPCBridge
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!114 &1622444589
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1622444588}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 3e31f8a2b3a04ab4ca1507ac842a9b1c, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  serverAddress: http://127.0.0.1:50051
+  javaCodeToExecute: "package com.codeworld.server;\n\npublic class MyUserCode {\n   
+    public static void Main(Printer printer) {\n        printer.print(42);\n       
+    printer.print(3.14159);\n        printer.print(true);\n    }\n}"
+--- !u!4 &1622444590
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1622444588}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &1626153165
 GameObject:
   m_ObjectHideFlags: 0
@@ -21007,6 +21019,12 @@ GameObject:
   m_CorrespondingSourceObject: {fileID: 2621364976329062830, guid: 2f440b6e54217894c892fec89b066795,
     type: 3}
   m_PrefabInstance: {fileID: 254407425}
+  m_PrefabAsset: {fileID: 0}
+--- !u!1 &1703346391 stripped
+GameObject:
+  m_CorrespondingSourceObject: {fileID: 277169492834933791, guid: 0ea9ea8efad61d84a87cb37c3aee0b8a,
+    type: 3}
+  m_PrefabInstance: {fileID: 4872924884598532696}
   m_PrefabAsset: {fileID: 0}
 --- !u!1001 &1705498805
 PrefabInstance:
@@ -24005,6 +24023,51 @@ PrefabInstance:
     m_AddedGameObjects: []
     m_AddedComponents: []
   m_SourcePrefab: {fileID: 100100000, guid: 2f440b6e54217894c892fec89b066795, type: 3}
+--- !u!21 &1967227379
+Material:
+  serializedVersion: 8
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_Name: colored (Instance)
+  m_Shader: {fileID: -6465566751694194690, guid: 62a54f2b0fb451f43909cb661e7582fc,
+    type: 3}
+  m_Parent: {fileID: 0}
+  m_ModifiedSerializedProperties: 0
+  m_ValidKeywords: []
+  m_InvalidKeywords: []
+  m_LightmapFlags: 4
+  m_EnableInstancingVariants: 0
+  m_DoubleSidedGI: 0
+  m_CustomRenderQueue: -1
+  stringTagMap: {}
+  disabledShaderPasses:
+  - MOTIONVECTORS
+  m_LockedProperties: 
+  m_SavedProperties:
+    serializedVersion: 3
+    m_TexEnvs:
+    - unity_Lightmaps:
+        m_Texture: {fileID: 0}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0}
+    - unity_LightmapsInd:
+        m_Texture: {fileID: 0}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0}
+    - unity_ShadowMasks:
+        m_Texture: {fileID: 0}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0}
+    m_Ints: []
+    m_Floats:
+    - _QueueControl: 0
+    - _QueueOffset: 0
+    m_Colors:
+    - _color: {r: 1, g: 0, b: 0, a: 1}
+  m_BuildTextureStacks: []
+  m_AllowLocking: 1
 --- !u!1 &1971842608 stripped
 GameObject:
   m_CorrespondingSourceObject: {fileID: 2621364976329062830, guid: 2f440b6e54217894c892fec89b066795,
@@ -24541,7 +24604,7 @@ MonoBehaviour:
     type: 3}
   m_PrefabInstance: {fileID: 4872924884598532696}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 0}
+  m_GameObject: {fileID: 1703346391}
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 3fc864c4e3f5eb441a1ef5aa53fc0b20, type: 3}
@@ -24553,12 +24616,37 @@ MonoBehaviour:
     type: 3}
   m_PrefabInstance: {fileID: 4872924884598532696}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 0}
+  m_GameObject: {fileID: 1703346391}
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 6e91438a9b6f9a34c98ea7010c2df03a, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+--- !u!114 &2027903553 stripped
+MonoBehaviour:
+  m_CorrespondingSourceObject: {fileID: 8940718293206993837, guid: 0ea9ea8efad61d84a87cb37c3aee0b8a,
+    type: 3}
+  m_PrefabInstance: {fileID: 4872924884598532696}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1703346391}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 84968ba7c45237149942da6ea393be57, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+--- !u!114 &2027903554
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1703346391}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 28eb73416b94f3d4d866f8ac01ad8c8d, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  _verboseLogging: 0
 --- !u!1 &2028640059 stripped
 GameObject:
   m_CorrespondingSourceObject: {fileID: 2621364976329062830, guid: 2f440b6e54217894c892fec89b066795,
@@ -26360,6 +26448,11 @@ PrefabInstance:
       propertyPath: autoFitToWindow
       value: 1
       objectReference: {fileID: 0}
+    - target: {fileID: 1037449861426490733, guid: 0ea9ea8efad61d84a87cb37c3aee0b8a,
+        type: 3}
+      propertyPath: _fileSessionManager
+      value: 
+      objectReference: {fileID: 2027903554}
     - target: {fileID: 2372929055191190424, guid: 0ea9ea8efad61d84a87cb37c3aee0b8a,
         type: 3}
       propertyPath: _theme
@@ -26416,7 +26509,11 @@ PrefabInstance:
     m_RemovedComponents: []
     m_RemovedGameObjects: []
     m_AddedGameObjects: []
-    m_AddedComponents: []
+    m_AddedComponents:
+    - targetCorrespondingSourceObject: {fileID: 277169492834933791, guid: 0ea9ea8efad61d84a87cb37c3aee0b8a,
+        type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 2027903554}
   m_SourcePrefab: {fileID: 100100000, guid: 0ea9ea8efad61d84a87cb37c3aee0b8a, type: 3}
 --- !u!1 &5909304967949476458
 GameObject:
@@ -26686,3 +26783,4 @@ SceneRoots:
   - {fileID: 1346998750}
   - {fileID: 1770204407}
   - {fileID: 1575713444}
+  - {fileID: 1622444590}

@@ -48,6 +48,10 @@ public static partial class CodeWorldService
   static readonly grpc::Marshaller<global::ObjectStatus> __Marshaller_ObjectStatus = grpc::Marshallers.Create(__Helper_SerializeMessage, context => __Helper_DeserializeMessage(context, global::ObjectStatus.Parser));
   [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
   static readonly grpc::Marshaller<global::ColorRequest> __Marshaller_ColorRequest = grpc::Marshallers.Create(__Helper_SerializeMessage, context => __Helper_DeserializeMessage(context, global::ColorRequest.Parser));
+  [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
+  static readonly grpc::Marshaller<global::ExecuteRequest> __Marshaller_ExecuteRequest = grpc::Marshallers.Create(__Helper_SerializeMessage, context => __Helper_DeserializeMessage(context, global::ExecuteRequest.Parser));
+  [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
+  static readonly grpc::Marshaller<global::ExecuteResponse> __Marshaller_ExecuteResponse = grpc::Marshallers.Create(__Helper_SerializeMessage, context => __Helper_DeserializeMessage(context, global::ExecuteResponse.Parser));
 
   [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
   static readonly grpc::Method<global::ObjectStatus, global::ColorRequest> __Method_StreamObjectData = new grpc::Method<global::ObjectStatus, global::ColorRequest>(
@@ -56,6 +60,14 @@ public static partial class CodeWorldService
       "StreamObjectData",
       __Marshaller_ObjectStatus,
       __Marshaller_ColorRequest);
+
+  [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
+  static readonly grpc::Method<global::ExecuteRequest, global::ExecuteResponse> __Method_ExecuteCodeStream = new grpc::Method<global::ExecuteRequest, global::ExecuteResponse>(
+      grpc::MethodType.DuplexStreaming,
+      __ServiceName,
+      "ExecuteCodeStream",
+      __Marshaller_ExecuteRequest,
+      __Marshaller_ExecuteResponse);
 
   /// <summary>Service descriptor</summary>
   public static global::Google.Protobuf.Reflection.ServiceDescriptor Descriptor
@@ -69,6 +81,12 @@ public static partial class CodeWorldService
   {
     [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
     public virtual global::System.Threading.Tasks.Task StreamObjectData(grpc::IAsyncStreamReader<global::ObjectStatus> requestStream, grpc::IServerStreamWriter<global::ColorRequest> responseStream, grpc::ServerCallContext context)
+    {
+      throw new grpc::RpcException(new grpc::Status(grpc::StatusCode.Unimplemented, ""));
+    }
+
+    [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
+    public virtual global::System.Threading.Tasks.Task ExecuteCodeStream(grpc::IAsyncStreamReader<global::ExecuteRequest> requestStream, grpc::IServerStreamWriter<global::ExecuteResponse> responseStream, grpc::ServerCallContext context)
     {
       throw new grpc::RpcException(new grpc::Status(grpc::StatusCode.Unimplemented, ""));
     }
@@ -112,6 +130,16 @@ public static partial class CodeWorldService
     {
       return CallInvoker.AsyncDuplexStreamingCall(__Method_StreamObjectData, null, options);
     }
+    [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
+    public virtual grpc::AsyncDuplexStreamingCall<global::ExecuteRequest, global::ExecuteResponse> ExecuteCodeStream(grpc::Metadata headers = null, global::System.DateTime? deadline = null, global::System.Threading.CancellationToken cancellationToken = default(global::System.Threading.CancellationToken))
+    {
+      return ExecuteCodeStream(new grpc::CallOptions(headers, deadline, cancellationToken));
+    }
+    [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
+    public virtual grpc::AsyncDuplexStreamingCall<global::ExecuteRequest, global::ExecuteResponse> ExecuteCodeStream(grpc::CallOptions options)
+    {
+      return CallInvoker.AsyncDuplexStreamingCall(__Method_ExecuteCodeStream, null, options);
+    }
     /// <summary>Creates a new instance of client from given <c>ClientBaseConfiguration</c>.</summary>
     [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
     protected override CodeWorldServiceClient NewInstance(ClientBaseConfiguration configuration)
@@ -126,7 +154,8 @@ public static partial class CodeWorldService
   public static grpc::ServerServiceDefinition BindService(CodeWorldServiceBase serviceImpl)
   {
     return grpc::ServerServiceDefinition.CreateBuilder()
-        .AddMethod(__Method_StreamObjectData, serviceImpl.StreamObjectData).Build();
+        .AddMethod(__Method_StreamObjectData, serviceImpl.StreamObjectData)
+        .AddMethod(__Method_ExecuteCodeStream, serviceImpl.ExecuteCodeStream).Build();
   }
 
   /// <summary>Register service method with a service binder with or without implementation. Useful when customizing the service binding logic.
@@ -137,6 +166,7 @@ public static partial class CodeWorldService
   public static void BindService(grpc::ServiceBinderBase serviceBinder, CodeWorldServiceBase serviceImpl)
   {
     serviceBinder.AddMethod(__Method_StreamObjectData, serviceImpl == null ? null : new grpc::DuplexStreamingServerMethod<global::ObjectStatus, global::ColorRequest>(serviceImpl.StreamObjectData));
+    serviceBinder.AddMethod(__Method_ExecuteCodeStream, serviceImpl == null ? null : new grpc::DuplexStreamingServerMethod<global::ExecuteRequest, global::ExecuteResponse>(serviceImpl.ExecuteCodeStream));
   }
 
 }

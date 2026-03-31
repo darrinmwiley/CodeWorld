@@ -53,6 +53,13 @@ public class TabbedConsoleWindowController : WindowComponent
     public string ActiveTabKey { get; private set; }
     public int TabCount => _tabOrder.Count;
 
+    public ConsoleWindowController GetActiveConsole()
+    {
+        if (string.IsNullOrWhiteSpace(ActiveTabKey) || !_tabsByKey.TryGetValue(ActiveTabKey, out TabData tab))
+            return null;
+        return tab.Console;
+    }
+
     public override void Initialize(VisualElement container, IBaseWindow root)
     {
         _rootWindow = root;

@@ -106,6 +106,18 @@ public class OptionBarWrapperController : WindowComponent
             case "EXIT_APP":
                 Application.Quit();
                 break;
+            case "PLAY_CODE":
+            case "EXECUTE_CODE":
+                var executor = FindObjectOfType<CodeExecutor>();
+                if (executor != null)
+                {
+                    executor.ExecuteActiveTab();
+                }
+                else
+                {
+                    Debug.LogWarning("[OptionBar] Could not find CodeExecutor in the scene.");
+                }
+                break;
             default:
                 break;
         }
