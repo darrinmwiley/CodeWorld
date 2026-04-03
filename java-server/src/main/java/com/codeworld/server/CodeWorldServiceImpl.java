@@ -72,10 +72,18 @@ public class CodeWorldServiceImpl extends CodeWorldServiceGrpc.CodeWorldServiceI
                                 responseObserver.onNext(ExecuteResponse.newBuilder()
                                         .setExecutionCompleted("Success")
                                         .build());
-                            } catch (Exception e) {
-                                System.err.println("Execution failed: " + e.getMessage());
+                            } catch (java.lang.reflect.InvocationTargetException ite) {
+                                Throwable cause = ite.getTargetException();
+                                String errorMsg = cause.getMessage() != null ? cause.getMessage() : cause.getClass().getSimpleName();
+                                System.err.println("Execution logic error: " + errorMsg);
                                 responseObserver.onNext(ExecuteResponse.newBuilder()
-                                        .setExecutionCompleted("Error: " + e.getMessage())
+                                        .setExecutionCompleted("Error: " + errorMsg)
+                                        .build());
+                            } catch (Exception e) {
+                                String errorMsg = e.getMessage() != null ? e.getMessage() : e.getClass().getSimpleName();
+                                System.err.println("Execution setup error: " + errorMsg);
+                                responseObserver.onNext(ExecuteResponse.newBuilder()
+                                        .setExecutionCompleted("Error: " + errorMsg)
                                         .build());
                             } finally {
                                 ExecutionContext.clear();

@@ -35,11 +35,11 @@ public class SocketLineManager : MonoBehaviour
         Debug.Log("item plugged in");
         ItemValue itemVal = item.GetComponent<ItemValue>();
         Color targetColor = defaultColor;
-        if(itemVal.value == "true")
+        if(itemVal.value.ToLower() == "true")
         {
             targetColor = trueColor;
         }
-        else if(itemVal.value == "false")
+        else if(itemVal.value.ToLower() == "false")
         {
             targetColor = falseColor;
         }
