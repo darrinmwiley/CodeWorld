@@ -35,6 +35,10 @@ public class Puzzle1GraphingUtility : MonoBehaviour
     public Vector2 targetPointB = new Vector2(3, 3);
     public float pointRadius = 0.3f;
 
+    public float CurrentM { get; private set; }
+    public float CurrentB { get; private set; }
+    public bool IsLaserActive => isFiring;
+
     private bool isFiring = false;
 
     void Start()
@@ -70,6 +74,9 @@ public class Puzzle1GraphingUtility : MonoBehaviour
 
         float m = (float)GetValueFromSocket(socketM);
         float b = (float)GetValueFromSocket(socketB);
+        
+        CurrentM = m;
+        CurrentB = b;
 
         Vector2 start, end;
         if (CalculateClippedLine(m, b, out start, out end))

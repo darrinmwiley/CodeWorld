@@ -13,6 +13,7 @@ public class LightSequenceController : MonoBehaviour
     public float delayBetweenLights = 0.3f;
     public string lightChildName = "light_ON";
 
+    public bool IsFinished { get; private set; }
     private bool isSequenceRunning = false;
 
     void Update()
@@ -30,6 +31,15 @@ public class LightSequenceController : MonoBehaviour
         }
     }
 
+    public void StartSequence()
+    {
+        if (!isSequenceRunning)
+        {
+            IsFinished = false;
+            StartCoroutine(PlayLightSequence());
+        }
+    }
+
     private IEnumerator PlayLightSequence()
     {
         isSequenceRunning = true;
@@ -43,13 +53,15 @@ public class LightSequenceController : MonoBehaviour
         // We leave isSequenceRunning as true so it doesn't loop, 
         // OR set it to false if you want to be able to play it again immediately.
         isSequenceRunning = false; 
+        IsFinished = true;
     }
 
-    private void ResetAllLights()
+    public void ResetAllLights()
     {
         // 1. Stop the sequence coroutine so it doesn't keep turning lights ON
         StopAllCoroutines();
         isSequenceRunning = false;
+        IsFinished = false;
 
         // 2. Force every light child to Deactive
         foreach (GameObject parent in lightParents)

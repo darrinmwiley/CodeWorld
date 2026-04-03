@@ -18,6 +18,8 @@ public class LineController : MonoBehaviour
     [SerializeField] private float transitionTime = 2.0f;
     [SerializeField] private float lineWidth = 0.1f;
     
+    public float LineWidth => lineWidth;
+    
     [Tooltip("If true, the base line (Mesh A) will not be drawn. Only the transition (Mesh B) will be visible.")]
     [SerializeField] private bool hideBaseMesh = false;
 
@@ -192,7 +194,7 @@ public class LineController : MonoBehaviour
 
     private Material GetDefaultMaterial() => new Material(Shader.Find("Sprites/Default"));
 
-    private List<Vector3> GetLivePoints()
+    public List<Vector3> GetLivePoints()
     {
         List<Vector3> live = new List<Vector3>();
         if (points == null) return live;
