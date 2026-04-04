@@ -671,6 +671,37 @@ public class FileHierarchyComponent : WindowComponent
         if (_fileSessionManager != null && targetStateManager != null)
             _fileSessionManager.LoadDocumentInto(node.Path, targetStateManager);
 
+        if (targetConsole != null && targetConsole.rendererManager != null)
+        {
+            string ext = System.IO.Path.GetExtension(node.Path).ToLower();
+            var renderer = targetConsole.rendererManager;
+
+            // Remove existing highlighters to ensure we only have one active
+            var existingHighlighters = renderer.GetComponents<SyntaxHighlighter>();
+            foreach (var h in existingHighlighters)
+            {
+                if (Application.isPlaying) Destroy(h);
+                else DestroyImmediate(h);
+            }
+
+            SyntaxHighlighter newHighlighter = null;
+
+            if (ext == ".txt")
+            {
+                newHighlighter = renderer.gameObject.AddComponent<OneColorSyntaxHighlighter>();
+            }
+            else if (ext == ".java")
+            {
+                newHighlighter = renderer.gameObject.AddComponent<JavaSyntaxHighlighter>();
+            }
+            else if (ext == ".cs")
+            {
+                newHighlighter = renderer.gameObject.AddComponent<CSharpSyntaxHighlighter>();
+            }
+
+            renderer.syntaxHighlighter = newHighlighter;
+        }
+
         _activeConsole = targetConsole;
         _activeStateManager = targetStateManager;
 
