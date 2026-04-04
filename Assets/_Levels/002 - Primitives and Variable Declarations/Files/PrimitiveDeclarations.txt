@@ -1,3 +1,49 @@
-Primitive Declarations test
+The magic words for declaring a variable are as follows:
 
-Bla Bla
+<TYPE> <NAME> = <VALUE> ;
+
+let's break down what each of these mean
+
+--TYPE--
+
+There are all sorts of types, but today let's just focus on the 3 most 
+basic ones. These would be ints, booleans, and doubles.
+
+ints are whole numbers, booleans are true / false values, and doubles
+are numbers that aren't necessarily whole and store places after the 
+decimal point.
+
+to initialize a variable of any of these types, you just use that type's
+name (either "int", "boolean", or "double") in place of <TYPE> is in the 
+template.
+
+--NAME--
+
+Name can be almost anything you want. It's just how you will refer to
+the variable you create. There are a couple rules, but for the most part
+it's pretty freeform.
+
+Names can't start with a number, or contain certain special characters. 
+Each programming language also has it's own set of "reserved" keywords that 
+can't be used. Chances are, if you think of a name made of normal letters,
+it will be fine. And if it's not, the programming language will tell you
+when you try to run your code.
+
+--VALUE--
+
+Value just needs to be something matching TYPE. So for instance, if type 
+were "int", you would expect value to be something like 0, 1, etc...
+
+for "boolean", you would expect true or false
+
+for "double", you could see something like 1.5
+
+--PUTTING IT ALL TOGETHER--
+
+so with all of those pieces in mind, and not forgetting the '=' or the ';', 
+a variable declaration would look something like:
+
+int i = 0;
+
+but you can use different stuff in place of <TYPE>, <NAME, <VALUE> depending
+on what you wanna make, what you wanna call it, etc...

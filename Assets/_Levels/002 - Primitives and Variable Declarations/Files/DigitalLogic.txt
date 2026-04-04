@@ -1,3 +1,13 @@
-Digital Logic test
+Digital logic is a way of using diagrams to describe different logical
+expressions like (a AND b), (x OR y), NOT(c)
 
-Bla Bla
+Basically, each operator (AND, OR, NOT, etc..) has a specific shape that
+represents it. We draw lines into the shape to denote inputs, and a single
+line out of each shape for the resulting output. 
+
+But here's the thing - This UI doesn't really do pictures, and I can't be
+bothered to code all that. And this is an escape room, you should expect 
+some difficulty. I'm not just going to spoon feed you every answer. 
+Especially when not doing so makes my life easier. But just know, this is a 
+hint. Maybe there are some digital logic diagrams in the level that you have 
+to do something with. who's to say?
