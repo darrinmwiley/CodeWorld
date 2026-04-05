@@ -58,5 +58,21 @@ message ExecuteResponse {
     PrintBoolJob print_bool = 3;
     string execution_completed = 4;
     FindObjectQuery find_object_query = 5;
+    PrintStringJob print_string = 6;
+    CompileError compile_error = 7;
+    RuntimeError runtime_error = 8;
   }
-}
+}
+
+message PrintStringJob {
+  string value = 1;
+}
+
+message CompileError {
+  string message = 1;
+}
+
+message RuntimeError {
+  string message = 1;
+}
+

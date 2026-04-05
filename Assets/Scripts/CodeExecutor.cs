@@ -14,6 +14,9 @@ public class CodeExecutor : MonoBehaviour
     [Header("Java server address")]
     public string serverAddress = "http://127.0.0.1:50051";
 
+    [Header("Output Console")]
+    [SerializeField] private OutputConsoleController _outputConsole;
+
     [TextArea(15, 30)]
     public string javaCodeToExecute = @"package com.codeworld.server;
 
@@ -59,6 +62,9 @@ public class MyUserCode {
 
     public async void ExecuteActiveTab()
     {
+        if (_outputConsole != null && _outputConsole.clearOnNewRun)
+            _outputConsole.Clear();
+
         var tabbedConsole = FindObjectOfType<TabbedConsoleWindowController>();
         if (tabbedConsole != null)
         {
@@ -75,7 +81,7 @@ public class MyUserCode {
                 string code = sb.ToString();
                 if (string.IsNullOrWhiteSpace(code))
                 {
-                    UnityEngine.Debug.LogWarning("Cannot execute Empty script.");
+                    _outputConsole?.AppendLine("[Error] Cannot execute an empty script.");
                     return;
                 }
 
@@ -118,17 +124,36 @@ public class MyUserCode {
                         case ExecuteResponse.EventOneofCase.PrintInt:
                             DispatchRpc(response.PrintInt.TargetId, "Print", response.PrintInt.Value);
                             break;
+
                         case ExecuteResponse.EventOneofCase.PrintDouble:
                             DispatchRpc(response.PrintDouble.TargetId, "Print", response.PrintDouble.Value);
                             break;
+
                         case ExecuteResponse.EventOneofCase.PrintBool:
                             DispatchRpc(response.PrintBool.TargetId, "Print", response.PrintBool.Value);
                             break;
-                        case ExecuteResponse.EventOneofCase.FindObjectQuery:
-                            var query = response.FindObjectQuery;
-                            HandleFindObjectQuery(query);
+
+                        case ExecuteResponse.EventOneofCase.PrintString:
+                            _outputConsole?.AppendLine(response.PrintString.Value);
                             break;
+
+                        case ExecuteResponse.EventOneofCase.CompileError:
+                            _outputConsole?.AppendLine("[Compile Error]\n" + response.CompileError.Message, isError: true);
+                            break;
+
+                        case ExecuteResponse.EventOneofCase.RuntimeError:
+                            _outputConsole?.AppendLine("[Runtime Error] " + response.RuntimeError.Message, isError: true);
+                            break;
+
+                        case ExecuteResponse.EventOneofCase.FindObjectQuery:
+                            HandleFindObjectQuery(response.FindObjectQuery);
+                            break;
+
                         case ExecuteResponse.EventOneofCase.ExecutionCompleted:
+                            if (response.ExecutionCompleted == "Success")
+                                _outputConsole?.AppendLine("[Done]");
+                            else
+                                _outputConsole?.AppendLine("[Done] " + response.ExecutionCompleted);
                             UnityEngine.Debug.Log($"[Execution] Completed: {response.ExecutionCompleted}");
                             break;
                     }

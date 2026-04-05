@@ -8,9 +8,12 @@ import com.codeworld.generated.ExecuteResponse;
 import com.codeworld.generated.PrintIntJob;
 import com.codeworld.generated.PrintDoubleJob;
 import com.codeworld.generated.PrintBoolJob;
+import com.codeworld.generated.CompileError;
+import com.codeworld.generated.RuntimeError;
 
 import io.grpc.stub.StreamObserver;
 
+import java.lang.reflect.InvocationTargetException;
 import java.util.Random;
 import java.util.concurrent.*;
 
@@ -72,18 +75,30 @@ public class CodeWorldServiceImpl extends CodeWorldServiceGrpc.CodeWorldServiceI
                                 responseObserver.onNext(ExecuteResponse.newBuilder()
                                         .setExecutionCompleted("Success")
                                         .build());
-                            } catch (java.lang.reflect.InvocationTargetException ite) {
-                                Throwable cause = ite.getTargetException();
-                                String errorMsg = cause.getMessage() != null ? cause.getMessage() : cause.getClass().getSimpleName();
-                                System.err.println("Execution logic error: " + errorMsg);
+                            } catch (CompilationException ce) {
+                                System.err.println("Compile error: " + ce.getMessage());
                                 responseObserver.onNext(ExecuteResponse.newBuilder()
-                                        .setExecutionCompleted("Error: " + errorMsg)
+                                        .setCompileError(CompileError.newBuilder()
+                                                .setMessage(ce.getMessage())
+                                                .build())
+                                        .build());
+                            } catch (InvocationTargetException ite) {
+                                Throwable cause = ite.getTargetException();
+                                String errorMsg = cause.getClass().getSimpleName() + ": " +
+                                        (cause.getMessage() != null ? cause.getMessage() : "(no message)");
+                                System.err.println("Runtime error: " + errorMsg);
+                                responseObserver.onNext(ExecuteResponse.newBuilder()
+                                        .setRuntimeError(RuntimeError.newBuilder()
+                                                .setMessage(errorMsg)
+                                                .build())
                                         .build());
                             } catch (Exception e) {
                                 String errorMsg = e.getMessage() != null ? e.getMessage() : e.getClass().getSimpleName();
                                 System.err.println("Execution setup error: " + errorMsg);
                                 responseObserver.onNext(ExecuteResponse.newBuilder()
-                                        .setExecutionCompleted("Error: " + errorMsg)
+                                        .setRuntimeError(RuntimeError.newBuilder()
+                                                .setMessage(errorMsg)
+                                                .build())
                                         .build());
                             } finally {
                                 ExecutionContext.clear();

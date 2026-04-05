@@ -1,13 +1,15 @@
 package com.codeworld.server;
 
-import javax.tools.JavaCompiler;
-import javax.tools.ToolProvider;
+import javax.tools.*;
 import java.io.File;
 import java.lang.reflect.Method;
 import java.net.URL;
 import java.net.URLClassLoader;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Arrays;
+import java.util.List;
+import java.util.Locale;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -15,8 +17,9 @@ public class DynamicExecutionEngine {
 
     /**
      * Compiles and runs a valid Java class string with a main method.
-     * @param javaCode The full class definition (e.g. `public class MyGame { public static void main(String[] args) { ... } }`)
-     * @throws Exception if compilation or execution fails
+     * @param javaCode The full class definition
+     * @throws CompilationException if compilation fails (carries line-by-line diagnostics)
+     * @throws Exception if execution fails
      */
     public static void run(String javaCode) throws Exception {
         // Extract the class name from the code string
@@ -35,12 +38,29 @@ public class DynamicExecutionEngine {
         File sourceFile = new File(tempDir.toFile(), className + ".java");
         Files.writeString(sourceFile.toPath(), javaCode);
 
-        // Compile the source file, making sure current classpath is included so it knows about Printer
+        // Use DiagnosticCollector to capture specific error messages
+        DiagnosticCollector<JavaFileObject> diagnostics = new DiagnosticCollector<>();
         String classpath = System.getProperty("java.class.path");
-        int result = compiler.run(null, null, null, "-cp", classpath, sourceFile.getAbsolutePath());
-        
-        if (result != 0) {
-            throw new Exception("Compilation failed. Please check server logs for syntax errors.");
+
+        try (StandardJavaFileManager fileManager = compiler.getStandardFileManager(diagnostics, Locale.getDefault(), null)) {
+            Iterable<? extends JavaFileObject> compilationUnits =
+                    fileManager.getJavaFileObjects(sourceFile);
+
+            List<String> options = Arrays.asList("-cp", classpath);
+            JavaCompiler.CompilationTask task = compiler.getTask(null, fileManager, diagnostics, options, null, compilationUnits);
+            boolean success = task.call();
+
+            if (!success) {
+                StringBuilder sb = new StringBuilder();
+                for (Diagnostic<? extends JavaFileObject> d : diagnostics.getDiagnostics()) {
+                    if (d.getKind() == Diagnostic.Kind.ERROR) {
+                        sb.append("Line ").append(d.getLineNumber())
+                          .append(": ").append(d.getMessage(Locale.getDefault()))
+                          .append("\n");
+                    }
+                }
+                throw new CompilationException(sb.toString().trim());
+            }
         }
 
         // Load the compiled class dynamically
