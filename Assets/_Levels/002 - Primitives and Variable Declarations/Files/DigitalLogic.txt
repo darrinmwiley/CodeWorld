@@ -6,8 +6,7 @@ represents it. We draw lines into the shape to denote inputs, and a single
 line out of each shape for the resulting output. 
 
 But here's the thing - This UI doesn't really do pictures, and I can't be
-bothered to code all that. And this is an escape room, you should expect 
-some difficulty. I'm not just going to spoon feed you every answer. 
-Especially when not doing so makes my life easier. But just know, this is a 
-hint. Maybe there are some digital logic diagrams in the level that you have 
-to do something with. who's to say?
+bothered to code all that. So it's hard for me to convey to you which
+ones are which. This is an escape room though, so consider reasoning all
+of that out as part of the challenge. maybe there are some digital logic 
+diagrams in the level that you have to do something with. Who's to say?

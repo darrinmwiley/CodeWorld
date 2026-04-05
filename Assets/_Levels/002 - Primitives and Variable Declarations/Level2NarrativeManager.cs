@@ -1,6 +1,7 @@
 using UnityEngine;
 using System.Collections.Generic;
 using System.Collections;
+using System;
 
 public class Level2NarrativeManager : MonoBehaviour
 {
@@ -8,9 +9,24 @@ public class Level2NarrativeManager : MonoBehaviour
     public TerminalDialogue dialogueUI;
     public FacePowerClickController powerController;
 
+    [Header("Player / Scene Sequencing")]
+    public FirstPersonMovement playerMovement;
+    public GameObject escapeRoomObject;
+    public float escapeRoomSpawnY = 80f;
+    public float escapeRoomTargetY = 25f;
+    public float escapeRoomDescentDuration = 8f;
+
+    [Header("Level Completion")]
+    public BoxCollider levelFinishTrigger;
+
     private Queue<string> _lines = new Queue<string>();
     private bool _inConversation = false;
     private bool _introTriggered = false;
+    private Coroutine _escapeRoomDescentRoutine;
+    private bool _escapeRoomDescentStarted;
+    private float _levelTimerStartTime;
+    private bool _levelTimerRunning;
+    private bool _levelCompleted;
 
     void OnEnable()
     {
@@ -22,6 +38,10 @@ public class Level2NarrativeManager : MonoBehaviour
     {
         if (powerController != null)
             powerController.OnFaceTurnedOn.RemoveListener(HandleFacePowerOn);
+
+        // Safety unlock if this manager gets disabled mid-dialogue.
+        SetPlayerMovementLocked(false);
+        _levelTimerRunning = false;
     }
 
     void Update()
@@ -33,6 +53,8 @@ public class Level2NarrativeManager : MonoBehaviour
                 DisplayNextLine();
             }
         }
+
+        TryHandleLevelCompletion();
     }
 
     private void HandleFacePowerOn()
@@ -49,9 +71,12 @@ public class Level2NarrativeManager : MonoBehaviour
         if (powerController != null)
             powerController.SetLockOnDuringDialogue(true);
 
+        SetPlayerMovementLocked(true);
+        _inConversation = true;
+
+        _escapeRoomDescentStarted = false;
         _lines.Clear();
         foreach (string line in sequence) _lines.Enqueue(line);
-        _inConversation = true;
         DisplayNextLine();
     }
 
@@ -59,7 +84,15 @@ public class Level2NarrativeManager : MonoBehaviour
     {
         if (_lines.Count > 0)
         {
-            dialogueUI.PlayDialogue(_lines.Dequeue());
+            string nextLine = _lines.Dequeue();
+
+            if (!_escapeRoomDescentStarted && nextLine.IndexOf("escape-room style level", StringComparison.OrdinalIgnoreCase) >= 0)
+            {
+                _escapeRoomDescentStarted = true;
+                BeginEscapeRoomDescent();
+            }
+
+            dialogueUI.PlayDialogue(nextLine);
         }
         else
         {
@@ -68,7 +101,110 @@ public class Level2NarrativeManager : MonoBehaviour
 
             if (powerController != null)
                 powerController.SetLockOnDuringDialogue(false);
+
+            if (escapeRoomObject != null)
+            {
+                if (_escapeRoomDescentRoutine != null)
+                {
+                    StopCoroutine(_escapeRoomDescentRoutine);
+                    _escapeRoomDescentRoutine = null;
+                }
+
+                Vector3 roomPos = escapeRoomObject.transform.position;
+                escapeRoomObject.transform.position = new Vector3(roomPos.x, escapeRoomTargetY, roomPos.z);
+            }
+
+            SetPlayerMovementLocked(false);
+
+            if (!_levelCompleted && !_levelTimerRunning)
+                StartLevelCompletionTimer();
         }
+    }
+
+    private void StartLevelCompletionTimer()
+    {
+        _levelTimerStartTime = Time.time;
+        _levelTimerRunning = true;
+        _levelCompleted = false;
+    }
+
+    private void TryHandleLevelCompletion()
+    {
+        if (!_levelTimerRunning || _levelCompleted) return;
+        if (levelFinishTrigger == null || playerMovement == null) return;
+
+        if (!levelFinishTrigger.enabled || !levelFinishTrigger.gameObject.activeInHierarchy) return;
+
+        Collider playerCollider = playerMovement.GetComponent<Collider>();
+        if (playerCollider == null) return;
+
+        if (levelFinishTrigger.bounds.Intersects(playerCollider.bounds))
+        {
+            float elapsed = Time.time - _levelTimerStartTime;
+            _levelCompleted = true;
+            _levelTimerRunning = false;
+            TriggerLevelFinishedConversation(elapsed);
+        }
+    }
+
+    private void TriggerLevelFinishedConversation(float elapsedSeconds)
+    {
+        TimeSpan elapsed = TimeSpan.FromSeconds(Mathf.Max(0f, elapsedSeconds));
+        string formattedElapsed = string.Format("{0:D2}:{1:D2}:{2:D2}", (int)elapsed.TotalHours, elapsed.Minutes, elapsed.Seconds);
+
+        string[] completion = {
+            $"Nice, looks like you escaped! and it only took you {formattedElapsed}",
+            "Once level 3 materializes a little more I'll figure out what the reward here should be. Probably access to some more documentation and ability to do more than just print variables."
+        };
+
+        StartConversation(completion);
+    }
+
+    private void SetPlayerMovementLocked(bool shouldLock)
+    {
+        if (playerMovement != null)
+            playerMovement.movementLocked = shouldLock;
+    }
+
+    private void BeginEscapeRoomDescent()
+    {
+        if (escapeRoomObject == null) return;
+
+        escapeRoomObject.SetActive(true);
+
+        Vector3 roomPos = escapeRoomObject.transform.position;
+        escapeRoomObject.transform.position = new Vector3(roomPos.x, escapeRoomSpawnY, roomPos.z);
+
+        if (_escapeRoomDescentRoutine != null)
+            StopCoroutine(_escapeRoomDescentRoutine);
+
+        _escapeRoomDescentRoutine = StartCoroutine(DescendEscapeRoomRoutine());
+    }
+
+    private IEnumerator DescendEscapeRoomRoutine()
+    {
+        if (escapeRoomObject == null) yield break;
+
+        Vector3 startPos = new Vector3(escapeRoomObject.transform.position.x, escapeRoomSpawnY, escapeRoomObject.transform.position.z);
+        Vector3 endPos = new Vector3(startPos.x, escapeRoomTargetY, startPos.z);
+        float safeDuration = Mathf.Max(0.01f, escapeRoomDescentDuration);
+        float elapsed = 0f;
+
+        while (elapsed < safeDuration && _inConversation)
+        {
+            elapsed += Time.deltaTime;
+            float t = Mathf.Clamp01(elapsed / safeDuration);
+
+            // Smooth easing for a less mechanical drop.
+            float eased = t * t * (3f - 2f * t);
+            escapeRoomObject.transform.position = Vector3.Lerp(startPos, endPos, eased);
+            yield return null;
+        }
+
+        if (escapeRoomObject != null)
+            escapeRoomObject.transform.position = endPos;
+
+        _escapeRoomDescentRoutine = null;
     }
 
     public void TriggerIntroduction()

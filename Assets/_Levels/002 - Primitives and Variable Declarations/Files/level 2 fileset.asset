@@ -27,4 +27,4 @@ MonoBehaviour:
     lockedLines: all
   - virtualPath: PrinterController.java
     fileAsset: {fileID: 4900000, guid: 2af8a7240c5140a48a977442c15abdee, type: 3}
-    lockedLines: 1-7,9-11
+    lockedLines: 1-7,10-11
