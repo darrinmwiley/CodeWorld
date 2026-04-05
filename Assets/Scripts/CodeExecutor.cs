@@ -134,7 +134,8 @@ public class MyUserCode {
                             break;
 
                         case ExecuteResponse.EventOneofCase.PrintString:
-                            _outputConsole?.AppendLine(response.PrintString.Value);
+                            // Intentionally do not mirror program print output into the console.
+                            // We only show compile/runtime status messages there.
                             break;
 
                         case ExecuteResponse.EventOneofCase.CompileError:
@@ -151,7 +152,7 @@ public class MyUserCode {
 
                         case ExecuteResponse.EventOneofCase.ExecutionCompleted:
                             if (response.ExecutionCompleted == "Success")
-                                _outputConsole?.AppendLine("Success!", isSuccess: true);
+                                _outputConsole?.AppendLine("compiled and ran successfully", isSuccess: true);
                             else
                                 _outputConsole?.AppendLine("[Done] " + response.ExecutionCompleted);
                             UnityEngine.Debug.Log($"[Execution] Completed: {response.ExecutionCompleted}");
