@@ -12,7 +12,6 @@ public class MultiPaneWindowController : WindowComponent
     [SerializeField] private float _snapThreshold = 100f;
     [SerializeField] private float _minTopPaneHeight = 80f;
     [SerializeField] private float _minBottomPaneHeight = 80f;
-    [SerializeField] private float _defaultBottomPaneHeight = 200f;
     [SerializeField] private float _minCenterPaneWidth = 50f;
     [SerializeField] private float _separatorThickness = 10f;
 
@@ -32,7 +31,6 @@ public class MultiPaneWindowController : WindowComponent
     private IBaseWindow _windowRoot;
 
     private bool _isLeftPaneOpen = true;
-    private bool _hasInitializedHorizontalSplit;
 
     private float _dragStartMouseY;
     private float _dragStartHeight;
@@ -189,9 +187,6 @@ public class MultiPaneWindowController : WindowComponent
             SetLeftPaneSize(allowedWidth);
         }
 
-        if (_hasInitializedHorizontalSplit)
-            ClampTopPaneToValidRange();
-
         _windowRoot?.UpdateRootConstraints(GetMinimumSize());
     }
 
@@ -296,11 +291,6 @@ public class MultiPaneWindowController : WindowComponent
             horizontalSep.CapturePointer(e.pointerId);
             _dragStartMouseY = e.position.y;
 
-            if (!_hasInitializedHorizontalSplit)
-                ApplyInitialHorizontalSplit();
-            else
-                ClampTopPaneToValidRange();
-
             _dragStartHeight = _topSlot.resolvedStyle.height;
             _isDraggingHorizontal = true;
 
@@ -322,7 +312,6 @@ public class MultiPaneWindowController : WindowComponent
                 horizontalSep.ReleasePointer(e.pointerId);
 
             _isDraggingHorizontal = false;
-            ClampTopPaneToValidRange();
             _windowRoot?.UpdateRootConstraints(GetMinimumSize());
         });
     }
@@ -332,26 +321,7 @@ public class MultiPaneWindowController : WindowComponent
         if (_isDraggingHorizontal)
             return;
 
-        if (!_hasInitializedHorizontalSplit)
-            ApplyInitialHorizontalSplit();
-        else
-            ClampTopPaneToValidRange();
-
         _windowRoot?.UpdateRootConstraints(GetMinimumSize());
-    }
-
-    private void ApplyInitialHorizontalSplit()
-    {
-        if (_topSlot == null || _centerPane == null)
-            return;
-
-        float totalHeightAvailable = _centerPane.resolvedStyle.height;
-        if (totalHeightAvailable <= 0f)
-            return;
-
-        float desiredTopHeight = totalHeightAvailable - _defaultBottomPaneHeight - _separatorThickness;
-        ApplyTopPaneHeight(GetClampedTopPaneHeight(desiredTopHeight));
-        _hasInitializedHorizontalSplit = true;
     }
 
     private void ClampTopPaneToValidRange()
@@ -386,6 +356,7 @@ public class MultiPaneWindowController : WindowComponent
             return;
 
         _topSlot.style.flexGrow = 0;
+        _topSlot.style.flexShrink = 0;
         _topSlot.style.flexBasis = height;
         _topSlot.style.height = height;
     }

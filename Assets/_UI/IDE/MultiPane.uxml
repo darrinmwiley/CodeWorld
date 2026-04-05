@@ -12,7 +12,7 @@
             <ui:VisualElement name="HorizontalSeparator" style="flex-grow: 1; background-color: rgb(255, 255, 255); height: 2px; max-height: 2px; min-height: 2px;">
                 <ui:VisualElement name="HorizontalSeparatorDragZone" style="flex-grow: 1; background-color: rgba(0, 0, 0, 0); position: relative; left: auto; top: -3px; height: 6px; max-height: 6px; min-height: 6px; width: 100%; max-width: 100px; min-width: 100%;" />
             </ui:VisualElement>
-            <ui:VisualElement name="Bottom" style="flex-grow: 1; background-color: rgba(0, 0, 0, 0);" />
+            <ui:VisualElement name="Bottom" style="flex-grow: 0; background-color: rgba(0, 0, 0, 0); height: 250px;" />
         </ui:VisualElement>
     </ui:VisualElement>
 </ui:UXML>
