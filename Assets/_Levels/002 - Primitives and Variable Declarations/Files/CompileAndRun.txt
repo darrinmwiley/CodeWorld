@@ -1,8 +1,8 @@
 You may have noticed a green triangle button in the top right. That is the 
 most powerful tool in your possession - compile and run. 
 
-If you pull up a code file (one ending in .java) and click the button, it will try to compile and
-run whatever is there. If the code "compiles" i.e. if you've followed the
-language rules, it will be able to run, and effectuate some real change in 
-the world. you could even try changing some of the unlocked lines for 
-different results! 
+If you pull up a code file (one ending in .java) and click the button, it 
+will try to compile and run whatever is there. If the code "compiles" i.e. 
+if you've followed the language rules, it will be able to run, and 
+effectuate some real change in the world. you could even try changing some 
+of the unlocked lines for different results! 

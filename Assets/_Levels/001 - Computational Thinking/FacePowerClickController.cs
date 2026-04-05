@@ -7,6 +7,10 @@ public class FacePowerClickController : MonoBehaviour
     public QuadFaceAnimator face;
     public QuadFaceAnimator.FaceMode onMode = QuadFaceAnimator.FaceMode.Idle;
 
+    [Header("Interaction")]
+    [Tooltip("When true, extra clicks will not turn the face off.")]
+    public bool lockOnDuringDialogue = false;
+
     public UnityEvent OnFaceTurnedOn;
 
     void Start() => clickListener.AddClickHandler(OnPress);
@@ -24,8 +28,15 @@ public class FacePowerClickController : MonoBehaviour
         }
         else
         {
+            if (lockOnDuringDialogue) return;
+
             // Must cancel turn-on/talking immediately.
             face.TurnOff();
         }
+    }
+
+    public void SetLockOnDuringDialogue(bool shouldLock)
+    {
+        lockOnDuringDialogue = shouldLock;
     }
 }

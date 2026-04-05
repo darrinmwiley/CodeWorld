@@ -11,6 +11,8 @@ public class TerminalDialogue : MonoBehaviour
 
     [Header("Typewriter Settings")]
     public float charsPerSecond = 25f;
+    [Tooltip("Multiplier applied while left mouse button is held during typing.")]
+    public float holdMouseSpeedMultiplier = 3f;
     public bool IsTyping { get; private set; } = false;
 
     [Header("Portrait Textures")]
@@ -59,9 +61,14 @@ public class TerminalDialogue : MonoBehaviour
         foreach (char c in text)
         {
             _messageLabel.text += c;
+
+            float speedMultiplier = Input.GetMouseButton(0) ? holdMouseSpeedMultiplier : 1f;
+            float currentCharsPerSecond = charsPerSecond * Mathf.Max(0.01f, speedMultiplier);
+            float charDelay = 1f / currentCharsPerSecond;
+
             if (!char.IsWhiteSpace(c))
             {
-                mouthTimer += (1f / charsPerSecond);
+                mouthTimer += charDelay;
                 if (mouthTimer >= mouthFlapSpeed)
                 {
                     mouthTimer = 0;
@@ -69,7 +76,7 @@ public class TerminalDialogue : MonoBehaviour
                     _avatarBox.style.backgroundImage = useTalk1 ? talkTex1 : talkTex2;
                 }
             }
-            yield return new WaitForSeconds(1f / charsPerSecond);
+            yield return new WaitForSeconds(charDelay);
         }
 
         IsTyping = false;

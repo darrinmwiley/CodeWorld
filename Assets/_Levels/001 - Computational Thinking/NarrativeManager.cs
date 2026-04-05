@@ -60,6 +60,9 @@ public class NarrativeManager : MonoBehaviour
 
     private void StartConversation(string[] sequence)
     {
+        if (powerController != null)
+            powerController.SetLockOnDuringDialogue(true);
+
         _lines.Clear();
         foreach (string line in sequence) _lines.Enqueue(line);
         _inConversation = true;
@@ -76,6 +79,9 @@ public class NarrativeManager : MonoBehaviour
         {
             _inConversation = false;
             dialogueUI.HideDialogue();
+
+            if (powerController != null)
+                powerController.SetLockOnDuringDialogue(false);
             
             // CONVERSATION OVER: Bring in the Turtle!
             StartCoroutine(EaseInTurtle());
