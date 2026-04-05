@@ -1,6 +1,7 @@
 
 using UnityEngine;
 using UnityEngine.UIElements;
+using System.Collections.Generic;
 
 /// <summary>
 /// Injects a read-only output console into a UI slot (e.g. the Bottom slot of MultiPane).
@@ -16,6 +17,9 @@ public class OutputConsoleController : WindowComponent
 
     private ConsoleWindowController _console;
     private ConsoleStateManager _state;
+    private readonly List<string> _rawOutputLines = new List<string>();
+    private int _lastWrapWidth = -1;
+    private bool _isRebuilding;
 
     public override void Initialize(VisualElement container, IBaseWindow root)
     {
@@ -43,6 +47,8 @@ public class OutputConsoleController : WindowComponent
             _state.readOnly = true;
             _state.allowNewLines = false;
             _state.showLineNumbers = false;
+            _state.OnStateChanged -= HandleStateChanged;
+            _state.OnStateChanged += HandleStateChanged;
         }
 
         _console.Initialize(container, root);
@@ -51,38 +57,123 @@ public class OutputConsoleController : WindowComponent
 
     public override Vector2 GetMinimumSize() => new Vector2(100f, 80f);
 
+    private void OnDestroy()
+    {
+        if (_state != null)
+            _state.OnStateChanged -= HandleStateChanged;
+    }
+
     /// <summary>Clears all output lines.</summary>
     public void Clear()
     {
-        if (_state == null) return;
-        _state.lines.Clear();
-        _state.lines.Add(new ConsoleStateManager.Line(string.Empty, false));
-        _state.cursorRow = 0;
-        _state.cursorCol = 0;
-        _state.visibleCursorCol = 0;
-        _state.verticalScroll = 0;
-        _state.NotifyStateChanged();
+        if (_state == null)
+            return;
+
+        _rawOutputLines.Clear();
+        RebuildWrappedOutput(scrollToBottom: false);
     }
 
     /// <summary>Appends a line to the output console. All lines are locked (read-only).</summary>
     public void AppendLine(string text, bool isError = false)
     {
-        Debug.Log("trying to append line: "+text);
-        if (_state == null) return;
+        if (_state == null)
+            return;
 
-        // Ensure we don't start with a stale empty line at the top
-        if (_state.lines.Count == 1 && string.IsNullOrEmpty(_state.lines[0].content) && !_state.lines[0].locked)
+        string normalized = (text ?? string.Empty).Replace("\r\n", "\n").Replace('\r', '\n');
+        string[] segments = normalized.Split('\n');
+
+        if (segments.Length == 0)
         {
-            _state.lines[0] = new ConsoleStateManager.Line(text ?? string.Empty, true);
+            _rawOutputLines.Add(string.Empty);
         }
         else
         {
-            _state.lines.Add(new ConsoleStateManager.Line(text ?? string.Empty, true));
+            for (int i = 0; i < segments.Length; i++)
+                _rawOutputLines.Add(segments[i] ?? string.Empty);
         }
 
-        // Scroll to the bottom
-        _state.cursorRow = _state.lines.Count - 1;
-        _state.verticalScroll = Mathf.Max(0, _state.lines.Count - _state.viewportHeight);
-        _state.NotifyStateChanged();
+        RebuildWrappedOutput(scrollToBottom: true);
+    }
+
+    private void HandleStateChanged()
+    {
+        if (_state == null || _isRebuilding)
+            return;
+
+        int currentWrapWidth = GetWrapContentWidth();
+        if (currentWrapWidth != _lastWrapWidth)
+            RebuildWrappedOutput(scrollToBottom: true);
+    }
+
+    private int GetWrapContentWidth()
+    {
+        if (_state == null)
+            return 1;
+
+        int available = _state.viewportWidth - _state.GetLineCountPadding() - 2;
+        return Mathf.Max(1, available);
+    }
+
+    private void RebuildWrappedOutput(bool scrollToBottom)
+    {
+        if (_state == null)
+            return;
+
+        int wrapWidth = GetWrapContentWidth();
+        _lastWrapWidth = wrapWidth;
+
+        _isRebuilding = true;
+        try
+        {
+            _state.lines.Clear();
+
+            if (_rawOutputLines.Count == 0)
+            {
+                _state.lines.Add(new ConsoleStateManager.Line(string.Empty, true));
+            }
+            else
+            {
+                for (int i = 0; i < _rawOutputLines.Count; i++)
+                    AppendWrappedLineToState(_rawOutputLines[i], wrapWidth);
+            }
+
+            if (_state.lines.Count == 0)
+                _state.lines.Add(new ConsoleStateManager.Line(string.Empty, true));
+
+            _state.cursorRow = Mathf.Max(0, _state.lines.Count - 1);
+            _state.visibleCursorCol = Mathf.Clamp(_state.visibleCursorCol, 0, _state.GetLineLength(_state.cursorRow));
+            _state.cursorCol = _state.visibleCursorCol;
+            _state.horizontalScroll = 0;
+
+            if (scrollToBottom)
+                _state.verticalScroll = Mathf.Max(0, _state.lines.Count - _state.viewportHeight);
+            else
+                _state.verticalScroll = 0;
+
+            _state.NotifyStateChanged();
+        }
+        finally
+        {
+            _isRebuilding = false;
+        }
+    }
+
+    private void AppendWrappedLineToState(string text, int wrapWidth)
+    {
+        string safe = text ?? string.Empty;
+        if (safe.Length == 0)
+        {
+            _state.lines.Add(new ConsoleStateManager.Line(string.Empty, true));
+            return;
+        }
+
+        int index = 0;
+        while (index < safe.Length)
+        {
+            int take = Mathf.Min(wrapWidth, safe.Length - index);
+            string segment = safe.Substring(index, take);
+            _state.lines.Add(new ConsoleStateManager.Line(segment, true));
+            index += take;
+        }
     }
 }
