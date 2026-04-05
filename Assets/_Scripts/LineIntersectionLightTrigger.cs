@@ -24,13 +24,36 @@ public class LineIntersectionLightTrigger : MonoBehaviour
     [Tooltip("Optional: Add a small buffer to the line's width for more forgiving intersection.")]
     public float radiusBuffer = 0.05f;
 
+    [Tooltip("Delay after the line transition completes before we start polling intersections.")]
+    public float pollDelayAfterLineComplete = 0.15f;
+
     private bool lastIntersectionResult = false;
+    private bool _wasLineCompleteLastFrame = false;
+    private float _lineCompleteSinceTime = -1f;
 
     void Update()
     {
         if (targetLine == null || targetObject == null || lightSequence == null) return;
 
-        bool currentResult = CheckIntersection();
+        bool lineComplete = targetLine.IsTransitionComplete;
+        if (lineComplete)
+        {
+            if (!_wasLineCompleteLastFrame)
+                _lineCompleteSinceTime = Time.time;
+
+            _wasLineCompleteLastFrame = true;
+        }
+        else
+        {
+            _wasLineCompleteLastFrame = false;
+            _lineCompleteSinceTime = -1f;
+        }
+
+        bool canPoll = lineComplete &&
+                       _lineCompleteSinceTime >= 0f &&
+                       (Time.time - _lineCompleteSinceTime) >= Mathf.Max(0f, pollDelayAfterLineComplete);
+
+        bool currentResult = canPoll && CheckIntersection();
 
         // Only trigger changes on state transition
         if (currentResult != lastIntersectionResult)

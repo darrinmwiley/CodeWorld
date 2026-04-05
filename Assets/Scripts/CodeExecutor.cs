@@ -81,7 +81,7 @@ public class MyUserCode {
                 string code = sb.ToString();
                 if (string.IsNullOrWhiteSpace(code))
                 {
-                    _outputConsole?.AppendLine("[Error] Cannot execute an empty script.");
+                    _outputConsole?.AppendLine("[Error] Cannot execute an empty script.", isError: true);
                     return;
                 }
 
@@ -151,7 +151,7 @@ public class MyUserCode {
 
                         case ExecuteResponse.EventOneofCase.ExecutionCompleted:
                             if (response.ExecutionCompleted == "Success")
-                                _outputConsole?.AppendLine("[Done]");
+                                _outputConsole?.AppendLine("Success!", isSuccess: true);
                             else
                                 _outputConsole?.AppendLine("[Done] " + response.ExecutionCompleted);
                             UnityEngine.Debug.Log($"[Execution] Completed: {response.ExecutionCompleted}");

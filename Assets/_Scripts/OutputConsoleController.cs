@@ -9,6 +9,18 @@ using System.Collections.Generic;
 /// </summary>
 public class OutputConsoleController : WindowComponent
 {
+    private struct OutputEntry
+    {
+        public string text;
+        public ConsoleStateManager.LineStyle style;
+
+        public OutputEntry(string text, ConsoleStateManager.LineStyle style)
+        {
+            this.text = text ?? string.Empty;
+            this.style = style;
+        }
+    }
+
     [Header("Console")]
     [SerializeField] private ConsoleWindowController _consolePrefab;
 
@@ -17,7 +29,7 @@ public class OutputConsoleController : WindowComponent
 
     private ConsoleWindowController _console;
     private ConsoleStateManager _state;
-    private readonly List<string> _rawOutputLines = new List<string>();
+    private readonly List<OutputEntry> _rawOutputLines = new List<OutputEntry>();
     private int _lastWrapWidth = -1;
     private bool _isRebuilding;
 
@@ -74,22 +86,26 @@ public class OutputConsoleController : WindowComponent
     }
 
     /// <summary>Appends a line to the output console. All lines are locked (read-only).</summary>
-    public void AppendLine(string text, bool isError = false)
+    public void AppendLine(string text, bool isError = false, bool isSuccess = false)
     {
         if (_state == null)
             return;
+
+        ConsoleStateManager.LineStyle style = ConsoleStateManager.LineStyle.Normal;
+        if (isError) style = ConsoleStateManager.LineStyle.Error;
+        else if (isSuccess) style = ConsoleStateManager.LineStyle.Success;
 
         string normalized = (text ?? string.Empty).Replace("\r\n", "\n").Replace('\r', '\n');
         string[] segments = normalized.Split('\n');
 
         if (segments.Length == 0)
         {
-            _rawOutputLines.Add(string.Empty);
+            _rawOutputLines.Add(new OutputEntry(string.Empty, style));
         }
         else
         {
             for (int i = 0; i < segments.Length; i++)
-                _rawOutputLines.Add(segments[i] ?? string.Empty);
+                _rawOutputLines.Add(new OutputEntry(segments[i] ?? string.Empty, style));
         }
 
         RebuildWrappedOutput(scrollToBottom: true);
@@ -158,12 +174,12 @@ public class OutputConsoleController : WindowComponent
         }
     }
 
-    private void AppendWrappedLineToState(string text, int wrapWidth)
+    private void AppendWrappedLineToState(OutputEntry entry, int wrapWidth)
     {
-        string safe = text ?? string.Empty;
+        string safe = entry.text ?? string.Empty;
         if (safe.Length == 0)
         {
-            _state.lines.Add(new ConsoleStateManager.Line(string.Empty, true));
+            _state.lines.Add(new ConsoleStateManager.Line(string.Empty, true, entry.style));
             return;
         }
 
@@ -172,7 +188,7 @@ public class OutputConsoleController : WindowComponent
         {
             int take = Mathf.Min(wrapWidth, safe.Length - index);
             string segment = safe.Substring(index, take);
-            _state.lines.Add(new ConsoleStateManager.Line(segment, true));
+            _state.lines.Add(new ConsoleStateManager.Line(segment, true, entry.style));
             index += take;
         }
     }

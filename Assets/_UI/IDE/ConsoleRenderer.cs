@@ -40,6 +40,8 @@ public class ConsoleRenderer : MonoBehaviour
 
     private static readonly Color32 COLOR_BLACK = new Color32(0, 0, 0, 255);
     private static readonly Color32 COLOR_WHITE = new Color32(255, 255, 255, 255);
+    private static readonly Color32 COLOR_ERROR = new Color32(255, 96, 96, 255);
+    private static readonly Color32 COLOR_SUCCESS = new Color32(96, 255, 128, 255);
     private const char LOCK_GLYPH_SENTINEL = '\u0001';
 
     private Color32 _themeBackgroundBase = new Color32(0, 0, 0, 255);
@@ -607,11 +609,25 @@ public class ConsoleRenderer : MonoBehaviour
         for (int row = 0; row < stateManager.viewportHeight; row++)
         {
             int lineNumber = row + stateManager.verticalScroll;
+            Color32 lineTextColor = _themeText;
+
+            if (lineNumber >= 0 && lineNumber < stateManager.lines.Count)
+            {
+                switch (stateManager.GetLineStyle(lineNumber))
+                {
+                    case ConsoleStateManager.LineStyle.Error:
+                        lineTextColor = COLOR_ERROR;
+                        break;
+                    case ConsoleStateManager.LineStyle.Success:
+                        lineTextColor = COLOR_SUCCESS;
+                        break;
+                }
+            }
 
             for (int col = padding; col < stateManager.viewportWidth; col++)
             {
                 SetCellColor(row, col, _themeBackgroundBase);
-                SetCellTextColor(row, col, _themeText);
+                SetCellTextColor(row, col, lineTextColor);
 
                 int contentColumn = col - padding + stateManager.horizontalScroll;
                 if (lineNumber >= 0 &&

@@ -5,16 +5,25 @@ using UnityEngine;
 
 public class ConsoleStateManager : MonoBehaviour
 {
+    public enum LineStyle
+    {
+        Normal,
+        Error,
+        Success
+    }
+
     [Serializable]
     public struct Line
     {
         public string content;
         public bool locked;
+        public LineStyle style;
 
-        public Line(string content, bool locked)
+        public Line(string content, bool locked, LineStyle style = LineStyle.Normal)
         {
             this.content = content ?? string.Empty;
             this.locked = locked;
+            this.style = style;
         }
 
         public int Length => string.IsNullOrEmpty(content) ? 0 : content.Length;
@@ -105,13 +114,19 @@ public class ConsoleStateManager : MonoBehaviour
         return lines[row].locked;
     }
 
+    public LineStyle GetLineStyle(int row)
+    {
+        if (row < 0 || row >= lines.Count) return LineStyle.Normal;
+        return lines[row].style;
+    }
+
     public List<Line> ExportLines()
     {
         List<Line> exported = new List<Line>(lines.Count);
         for (int i = 0; i < lines.Count; i++)
         {
             Line line = lines[i];
-            exported.Add(new Line(line.content, line.locked));
+            exported.Add(new Line(line.content, line.locked, line.style));
         }
 
         return exported;
@@ -171,7 +186,7 @@ public class ConsoleStateManager : MonoBehaviour
             for (int i = 0; i < newLines.Count; i++)
             {
                 Line line = newLines[i];
-                lines.Add(new Line(line.content, line.locked));
+                lines.Add(new Line(line.content, line.locked, line.style));
             }
         }
 
@@ -748,7 +763,7 @@ public class ConsoleStateManager : MonoBehaviour
         for (int i = 0; i < lines.Count; i++)
         {
             Line line = lines[i];
-            lines[i] = new Line(line.content ?? string.Empty, line.locked);
+            lines[i] = new Line(line.content ?? string.Empty, line.locked, line.style);
         }
 
         if (lines.Count == 0)

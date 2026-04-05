@@ -17,6 +17,10 @@ public class LineController : MonoBehaviour
     [SerializeField] private Color color2 = Color.green;
     [SerializeField] private float transitionTime = 2.0f;
     [SerializeField] private float lineWidth = 0.1f;
+    [Tooltip("Small amount subtracted from the base mesh width so it doesn't z-fight with the transition mesh.")]
+    [SerializeField] private float baseWidthInset = 0.002f;
+    [Tooltip("Small width bias applied to the transition mesh to prevent z-fighting flicker against the base mesh.")]
+    [SerializeField] private float transitionWidthBias = 0.002f;
     
     public float LineWidth => lineWidth;
     
@@ -44,11 +48,12 @@ public class LineController : MonoBehaviour
 
     private Coroutine transitionCoroutine;
     private bool isTransitioning = false;
+    private bool hasCompletedAtLeastOneTransition = false;
 
     private const string BaseObjectName = "Line_Base";
     private const string TransitionObjectName = "Line_Transition";
 
-    public bool IsTransitionComplete => !isTransitioning;
+    public bool IsTransitionComplete => !isTransitioning && hasCompletedAtLeastOneTransition;
     public Color CurrentColor => color2;
 
     private void Start()
@@ -73,7 +78,8 @@ public class LineController : MonoBehaviour
         else
         {
             Spline path = new CatmullRomSpline(livePoints, splineResolution);
-            BuildMeshInto(meshA, path.points, lineWidth, Mathf.Max(2, crossSectionVertices), baseRotationDegrees);
+            float baseVisualWidth = Mathf.Max(0.001f, lineWidth - Mathf.Max(0f, baseWidthInset));
+            BuildMeshInto(meshA, path.points, baseVisualWidth, Mathf.Max(2, crossSectionVertices), baseRotationDegrees);
         }
 
         if (!isTransitioning) ClearMesh(meshB);
@@ -83,6 +89,7 @@ public class LineController : MonoBehaviour
     {
         EnsureMeshObjects();
         ApplyRendererSettings();
+        hasCompletedAtLeastOneTransition = false;
 
         List<Vector3> livePoints = GetLivePoints();
         if (livePoints.Count < 2)
@@ -115,7 +122,8 @@ public class LineController : MonoBehaviour
             if (targetIndex >= 1)
             {
                 List<Vector3> partialPath = smoothPoints.GetRange(0, targetIndex + 1);
-                BuildMeshInto(meshB, partialPath, lineWidth, Mathf.Max(2, crossSectionVertices), baseRotationDegrees);
+                float transitionVisualWidth = lineWidth + Mathf.Max(0f, transitionWidthBias);
+                BuildMeshInto(meshB, partialPath, transitionVisualWidth, Mathf.Max(2, crossSectionVertices), baseRotationDegrees);
             }
             else
             {
@@ -124,8 +132,10 @@ public class LineController : MonoBehaviour
             yield return null;
         }
 
-        BuildMeshInto(meshB, smoothPoints, lineWidth, Mathf.Max(2, crossSectionVertices), baseRotationDegrees);
+        float finalTransitionVisualWidth = lineWidth + Mathf.Max(0f, transitionWidthBias);
+        BuildMeshInto(meshB, smoothPoints, finalTransitionVisualWidth, Mathf.Max(2, crossSectionVertices), baseRotationDegrees);
         isTransitioning = false;
+        hasCompletedAtLeastOneTransition = true;
         transitionCoroutine = null;
     }
 
@@ -183,13 +193,18 @@ public class LineController : MonoBehaviour
         ApplyRendererSettings(meshRendererB, color2, 1);
     }
 
-    private void ApplyRendererSettings(MeshRenderer mr, Color color, int sortingOrder)
+    private void ApplyRendererSettings(MeshRenderer mr, Color color, int renderQueueOffset)
     {
         if (mr == null) return;
         Material source = lineMaterial != null ? lineMaterial : GetDefaultMaterial();
         mr.sharedMaterial = new Material(source);
         if (mr.sharedMaterial.HasProperty("_Color")) mr.sharedMaterial.color = color;
-        mr.sortingOrder = sortingOrder;
+
+        // Keep both meshes depth-tested against world geometry, but enforce
+        // a stable draw order between base/transition to avoid camera-angle flicker.
+        int baseQueue = source != null ? source.renderQueue : 3000;
+        if (baseQueue <= 0) baseQueue = 3000;
+        mr.sharedMaterial.renderQueue = baseQueue + Mathf.Max(0, renderQueueOffset);
     }
 
     private Material GetDefaultMaterial() => new Material(Shader.Find("Sprites/Default"));
@@ -331,6 +346,7 @@ public class LineController : MonoBehaviour
     {
         if (transitionCoroutine != null) StopCoroutine(transitionCoroutine);
         isTransitioning = false;
+        hasCompletedAtLeastOneTransition = false;
         ClearMesh(meshB);
     }
 }
